@@ -14,7 +14,7 @@ use MongoDB\UpdateResult;
 /**
  * Class QueryBuilder
  *
- * @method QueryBuilder db( $name )
+ * @method QueryBuilder index( $name )
  * @method QueryBuilder table( $name )
  * @method QueryBuilder where( string $name, $value = '', string $operator = '$eq' )
  * @method QueryBuilder whereEqual( string $name, $value )
@@ -39,9 +39,9 @@ use MongoDB\UpdateResult;
  * @method QueryBuilder orWhereExists( string $name, $value )
  * @method QueryBuilder orWhereType( string $name, $value )
  * @method QueryBuilder select( array $fields ) select fields from collection
- * @method QueryBuilder orderby( array $fields, $order = 'ASC' ) order fields from collection
- * @method array get( int $count = 0 ) get result
- * @method array|object|null first() get first result only
+ * @method QueryBuilder sort( array $fields ) order fields from collection
+ * @method array|callable get( int $count = 0 ) get result
+ * @method mixed find( $id, bool $get_only_source = true ) get first result only
  * @method \MongoDB\InsertOneResult create( array $data ) Insert an Doc into table
  * @method \MongoDB\InsertManyResult createMany( array $data ) Insert Docs into table
  * @method \MongoDB\UpdateResult update( array $data ) Update Docs
@@ -160,6 +160,7 @@ class QueryBuilder
 	 */
 	protected function _call( $name, $args )
 	{
+		$available_args = $args;
 		$args[ 'arg1' ] = $args[ 'tb' ] = $args[ 'count' ] = $args[ 0 ] ?? '';
 		$args[ 'arg2' ] = $args[ 'field1' ] = $args[ 1 ] ?? '';
 		$args[ 'arg3' ] = $args[ 'join_operator' ] = $args[ 2 ] ?? '';
@@ -224,16 +225,16 @@ class QueryBuilder
 				return $this->_delete();
 				break;
 			case 'get':
-				return $this->_get( $args[ 'arg1' ] );
+				return call_user_func_array( [ self::class, '_get' ], $available_args );
+				break;
+			case 'find':
+				return call_user_func_array( [ self::class, '_find' ], $available_args );
 				break;
 			case 'mapping':
 				return $this->_mapping();
 				break;
 			case 'count':
 				return $this->_count();
-				break;
-			default:
-				return $this;
 				break;
 		}
 		
@@ -383,11 +384,21 @@ class QueryBuilder
 	}
 	
 	/**
-	 * @return bool|mixed
+	 * @param      $id
+	 * @param bool $get_only_source
+	 *
+	 * @return mixed
+	 * @throws ElastiCuteException
 	 */
-	protected function _first()
+	protected function _find( $id, bool $get_only_source = true )
 	{
-		return $this->_get( 1, true );
+		$this->initializeDatabaseAndCollection();
+		
+		$method = $get_only_source ? 'getSource' : 'get';
+		return $this->elastic->$method( [
+			'index' => $this->index_name,
+			'id' => $id,
+		] );
 	}
 	
 	/**
@@ -514,8 +525,8 @@ class QueryBuilder
 	{
 		$this->initializeDatabaseAndCollection();
 		
-		return $this->elastic->indices()->getMapping([
-			'index' => $this->index_name
-		]);
+		return $this->elastic->indices()->getMapping( [
+			'index' => $this->index_name,
+		] );
 	}
 }

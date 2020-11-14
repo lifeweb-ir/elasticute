@@ -8,8 +8,8 @@ $query = QueryBuilder::query()
 	->index( 'kibana_sample_data_ecommerce' )
 	->sort( [
 		'products.created_on' => [
-			'order' => 'desc'
-		]
+			'order' => 'desc',
+		],
 	] )
 	->get();
 
