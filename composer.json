@@ -1,0 +1,27 @@
+{
+    "name": "payamjafari/elasticute",
+    "type": "library",
+    "description": "",
+    "keywords": ["elasticsearch", "querybuilder", "nosql"],
+    "homepage": "https://github.com/PayamWeber/elasticute",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Payam Jafari",
+            "email": "payamweber@yahoo.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "vlucas/phpdotenv": "^5.2",
+        "elasticsearch/elasticsearch": "^7.10"
+    },
+    "autoload": {
+        "psr-4": {
+            "MongoCute\\": "src"
+        }
+    },
+    "extra": {
+        "class": "MongoCute\\Plugin"
+    }
+}
