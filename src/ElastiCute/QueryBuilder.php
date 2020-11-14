@@ -60,60 +60,60 @@ class QueryBuilder
 	protected string $index_name;
 	protected string $db_user;
 	protected string $db_pass;
-
+	
 	/** @var bool $connected is database connected successfully */
 	protected bool $connected = false;
-
+	
 	/**
 	 * @var array $query_where
 	 */
 	protected array $query_where = [];
-
+	
 	/**
-	 * @var array $query_orderby
+	 * @var array $query_sort
 	 */
-	protected array $query_orderby = [];
-
+	protected array $query_sort = [];
+	
 	/**
 	 * @var string $query_groupby
 	 */
 	protected $query_groupby;
-
+	
 	/**
 	 * @var array $query_select
 	 */
 	protected $query_select = [];
-
+	
 	/**
 	 * @var string $query_table
 	 */
 	protected string $query_table = '';
-
+	
 	/**
 	 * @var bool $is_group_where
 	 */
 	protected bool $is_group_where = false;
-
+	
 	/**
 	 * @var bool $is_count
 	 */
 	protected $is_count = false;
-
+	
 	protected static $current_depth_info = [
 		'type' => '$and',
 		'conditions' => [],
 	];
-
+	
 	/**
 	 * @var \Elasticsearch\Client $elastic
 	 */
 	protected $elastic;
-
+	
 	/**
 	 * this is allowed operators for queries
 	 */
 	protected const ALLOWED_OPERATORS = [ '$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$exists', '$type' ];
-
+	
 	/**
 	 * Model constructor.
 	 */
@@ -122,35 +122,34 @@ class QueryBuilder
 		$ref       = new \ReflectionClass( ClassLoader::class );
 		$envreader = Dotenv::createImmutable( dirname( $ref->getFileName() ) . '/../../' );
 		$envreader = $envreader->safeLoad();
-
+		
 		$this->db_address = self::getEnv( 'ELCUTE_DB_ADDRESS', '127.0.0.1' );
 		$this->db_port    = self::getEnv( 'ELCUTE_DB_PORT', '27017' );
-		$this->db_name    = self::getEnv( 'ELCUTE_DB_NAME', '' );
+		$this->index_name = self::getEnv( 'ELCUTE_DB_NAME', '' );
 		$this->db_user    = self::getEnv( 'ELCUTE_DB_USERNAME', '' );
 		$this->db_pass    = self::getEnv( 'ELCUTE_DB_PASSWORD', '' );
-
-		$userpass    = $this->db_user ? "{$this->db_user}:{$this->db_pass}@" : '';
+		
+		$userpass      = $this->db_user ? "{$this->db_user}:{$this->db_pass}@" : '';
 		$this->elastic = ClientBuilder::create()->build();
-
+		
 		try {
-			$this->elastic->listDatabases();
 			$this->connected = true;
-		} catch ( MongoDB\Driver\Exception\ConnectionTimeoutException $e ) {
+		} catch ( \Exception $e ) {
 			$this->connected = false;
 		}
 	}
-
+	
 	public function __call( $name, $arguments )
 	{
 		return $this->_call( $name, $arguments );
 	}
-
+	
 	public static function __callStatic( $name, $arguments )
 	{
 		$self = new static();
 		return $self->_call( $name, $arguments );
 	}
-
+	
 	/**
 	 * handle builtin methods as static or non static
 	 *
@@ -165,7 +164,7 @@ class QueryBuilder
 		$args[ 'arg2' ] = $args[ 'field1' ] = $args[ 1 ] ?? '';
 		$args[ 'arg3' ] = $args[ 'join_operator' ] = $args[ 2 ] ?? '';
 		$args[ 'arg4' ] = $args[ 3 ] ?? '';
-
+		
 		switch ( $name = strtolower( $name ) ) {
 			case 'index':
 				return $this->selectIndex( $args[ 'arg1' ] );
@@ -207,10 +206,10 @@ class QueryBuilder
 				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$type', $name == 'orwheretype' ? '$or' : '$and' );
 				break;
 			case 'select':
-				return $this->_select( $args[ 'arg1' ] ? : [] );
+				return $this->_select( $args[ 'arg1' ] ?: [] );
 				break;
-			case 'orderby':
-				return $this->_orderby( $args[ 'arg1' ] ? : [], $args[ 'arg2' ] ? : 'ASC' );
+			case 'sort':
+				return $this->_sort( $args[ 'arg1' ] ?: [] );
 				break;
 			case 'create':
 				return $this->_insert( $args[ 'arg1' ] );
@@ -227,8 +226,8 @@ class QueryBuilder
 			case 'get':
 				return $this->_get( $args[ 'arg1' ] );
 				break;
-			case 'first':
-				return $this->_first();
+			case 'mapping':
+				return $this->_mapping();
 				break;
 			case 'count':
 				return $this->_count();
@@ -237,10 +236,10 @@ class QueryBuilder
 				return $this;
 				break;
 		}
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * Start the query builder
 	 *
@@ -250,7 +249,7 @@ class QueryBuilder
 	{
 		return self::__callStatic( '', [] );
 	}
-
+	
 	/**
 	 * @param        $key
 	 * @param string $operator_or_value
@@ -262,14 +261,14 @@ class QueryBuilder
 	protected function _where( $key, $value = '', $operator = '$eq', $type = '$and' )
 	{
 		$operator = in_array( $operator, self::ALLOWED_OPERATORS ) ? $operator : '$eq';
-
+		
 		if ( $key ) {
 			$this->add_where_condition( $key, $value, $operator, $type );
 		}
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * @param        $key
 	 * @param        $value
@@ -299,7 +298,7 @@ class QueryBuilder
 				'conditions' => [],
 			];
 			$key( $this );
-			if ( ! $is_already_in_group ) {
+			if ( !$is_already_in_group ) {
 				$this->is_group_where = false;
 			}
 			$index                         = array_keys( $this->query_where );
@@ -313,7 +312,7 @@ class QueryBuilder
 					$operator => $value,
 				],
 			];
-
+			
 			if ( $this->is_group_where ) {
 				$this::$current_depth_info[ 'conditions' ][] = $condition_query;
 			} else {
@@ -323,25 +322,20 @@ class QueryBuilder
 			}
 		}
 	}
-
+	
 	/**
 	 * @param array  $fields
 	 * @param string $order
 	 *
 	 * @return $this
 	 */
-	protected function _orderby( array $fields, $order = 'ASC' )
+	protected function _sort( array $fields )
 	{
-		$_fields = [];
-		foreach ( $fields as $field ) {
-			$_fields[ $field ] = strtolower( $order ) == 'asc' ? 1 : -1;
-		}
-
-		$this->query_orderby = $_fields;
-
+		$this->query_sort = $fields;
+		
 		return $this;
 	}
-
+	
 	/**
 	 * @param $name
 	 *
@@ -353,12 +347,12 @@ class QueryBuilder
 		foreach ( $fields as $field ) {
 			$_fields[ $field ] = 1;
 		}
-
+		
 		$this->query_select = $_fields;
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * @param        $db
 	 * @param        $field1
@@ -371,10 +365,10 @@ class QueryBuilder
 	protected function _join( $db, $field1, $operator, $field2, $type = 'inner join' )
 	{
 		$this->query_join[] = "$type $db on $field1 $operator $field2";
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * @param $name
 	 *
@@ -384,10 +378,10 @@ class QueryBuilder
 	{
 		if ( $name )
 			$this->query_table = $name;
-
+		
 		return $this;
 	}
-
+	
 	/**
 	 * @return bool|mixed
 	 */
@@ -395,27 +389,39 @@ class QueryBuilder
 	{
 		return $this->_get( 1, true );
 	}
-
+	
 	/**
-	 * @param int $count
+	 * @param int  $count
+	 * @param bool $paginate
+	 * @param int  $pagenumber
 	 *
-	 * @return array|object|null
+	 * @return array|callable
+	 * @throws ElastiCuteException
 	 */
-	protected function _get( $count = 0, $first = false )
+	protected function _get( $count = 10, bool $paginate = false, $pagenumber = 1 )
 	{
 		$this->initializeDatabaseAndCollection();
 
-		$method = $first ? 'findOne' : 'find';
-
-		$result = $this->elastic->$method( $this->query_where, [
-			'limit' => intval( $count ),
-			'projection' => $this->query_select,
-			'sort' => $this->query_orderby,
+//		var_dump($this->elastic->getSource([
+//			'index' => 'kibana_sample_data_ecommerce',
+//			'id' => 'wDCoxXUBA0stnoJxvwdR']) );
+//		var_dump( $this->query_sort );
+//		die();
+		return $this->elastic->search( [
+			'index' => $this->index_name,
+			'body' => [
+					'query' => $this->query_where ?: [
+						'match_all' => (object)[],
+					],
+					'sort' => $this->query_sort ?: (object)[],
+					'size' => intval( $count ?: -1 ),
+				]
+				+ ( $paginate ? [
+					'from' => $pagenumber * $count,
+				] : [] ),
 		] );
-
-		return $first ? $result : $result->toArray();
 	}
-
+	
 	/**
 	 * @return int
 	 * @throws ElastiCuteException
@@ -423,10 +429,10 @@ class QueryBuilder
 	protected function _count()
 	{
 		$this->initializeDatabaseAndCollection();
-
+		
 		return $this->elastic->countDocuments( $this->query_where );
 	}
-
+	
 	/**
 	 * @param       $name
 	 * @param mixed $default
@@ -437,7 +443,7 @@ class QueryBuilder
 	{
 		return isset( $_ENV[ $name ] ) ? $_ENV[ $name ] : $default;
 	}
-
+	
 	/**
 	 * @param array $data
 	 * @param bool  $multiple
@@ -448,11 +454,11 @@ class QueryBuilder
 	protected function _insert( array $data, $multiple = false )
 	{
 		$this->initializeDatabaseAndCollection();
-
+		
 		$call = $multiple ? 'insertMany' : 'insertOne';
 		return $this->elastic->$call( $data );
 	}
-
+	
 	/**
 	 * @param array $data
 	 *
@@ -462,12 +468,12 @@ class QueryBuilder
 	protected function _update( array $data ): UpdateResult
 	{
 		$this->initializeDatabaseAndCollection();
-
+		
 		return $this->elastic->updateMany( $this->query_where, [
 			'$set' => $data,
 		] );
 	}
-
+	
 	/**
 	 * @return DeleteResult
 	 * @throws ElastiCuteException
@@ -475,10 +481,10 @@ class QueryBuilder
 	protected function _delete(): DeleteResult
 	{
 		$this->initializeDatabaseAndCollection();
-
+		
 		return $this->elastic->deleteMany( $this->query_where );
 	}
-
+	
 	/**
 	 * @param string $name
 	 *
@@ -489,21 +495,27 @@ class QueryBuilder
 		$this->index_name = $name;
 		return $this;
 	}
-
+	
 	/**
 	 * @throws ElastiCuteException
 	 */
 	protected function initializeDatabaseAndCollection()
 	{
-		if ( ! $this->connected ) {
+		if ( !$this->connected ) {
 			throw new ElastiCuteException( 'Could not connect to database' );
 		}
-
-		if ( ! $this->db_name || ! $this->query_table ) {
-			throw new ElastiCuteException( 'DB name or table name not been set' );
+		
+		if ( !$this->index_name ) {
+			throw new ElastiCuteException( 'Index name has not been set' );
 		}
-
-		$this->elastic = $this->elastic->selectDatabase( $this->db_name );
-		$this->elastic = $this->elastic->selectCollection( $this->query_table );
+	}
+	
+	protected function _mapping()
+	{
+		$this->initializeDatabaseAndCollection();
+		
+		return $this->elastic->indices()->getMapping([
+			'index' => $this->index_name
+		]);
 	}
 }
