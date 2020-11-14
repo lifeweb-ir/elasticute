@@ -11,6 +11,23 @@ $query = QueryBuilder::query()
 			'order' => 'desc',
 		],
 	] )
-	->get();
+	->groupShould( function ( QueryBuilder $builder ) {
+		$builder->whereContains( 'name', 'payam1' );
+		$builder->whereEqual( 'name', 'payam2' );
+	} )
+	->groupMust( function ( QueryBuilder $builder ) {
+		$builder->whereContains( 'name', 'payam7' );
+		$builder->whereEqual( 'name', 'payam8' );
+		$builder->groupMust( function ( QueryBuilder $builder ) {
+			$builder->whereNotContains( 'name', 'payam10' );
+			$builder->whereEqual( 'name', 'mamad11' );
+		} );
+		$builder->whereNotEqual( 'name', 'payam13' );
+	} )
+	->whereNotEqual( 'currency', 'EUR' )
+	->select( [ 'currency' ] )
+	->mapping();
 
+
+echo "<pre>";
 var_dump( $query );

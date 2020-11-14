@@ -5,50 +5,31 @@ namespace ElastiCute\ElastiCute;
 use Composer\Autoload\ClassLoader;
 use Dotenv\Dotenv;
 use Elasticsearch\ClientBuilder;
-use MongoDB\Client;
-use MongoDB\Collection;
-use MongoDB\DeleteResult;
-use MongoDB\InsertOneResult;
-use MongoDB\UpdateResult;
 
 /**
  * Class QueryBuilder
  *
  * @method QueryBuilder index( $name )
  * @method QueryBuilder table( $name )
- * @method QueryBuilder where( string $name, $value = '', string $operator = '$eq' )
+ * @method QueryBuilder groupShould( callable $filters )
+ * @method QueryBuilder groupMust( callable $filters )
+ * @method QueryBuilder groupMustNot( callable $filters )
+ * @method QueryBuilder groupFilter( callable $filters )
+ * @method QueryBuilder whereContains( string $name, $value = '' )
+ * @method QueryBuilder whereNotContains( string $name, $value = '' )
  * @method QueryBuilder whereEqual( string $name, $value )
- * @method QueryBuilder whereNot( string $name, $value )
- * @method QueryBuilder whereIn( string $name, array $values )
- * @method QueryBuilder whereNotIn( string $name, array $values )
- * @method QueryBuilder whereGreaterThan( string $name, $value )
- * @method QueryBuilder whereGreaterThanOrEqual( string $name, $value )
- * @method QueryBuilder whereLessThan( string $name, $value )
- * @method QueryBuilder whereLessThanOrEqual( string $name, $value )
- * @method QueryBuilder whereExists( string $name, $value )
- * @method QueryBuilder whereType( string $name, $value )
- * @method QueryBuilder orWhere( string $name, $value = '', string $operator = '$eq' )
- * @method QueryBuilder orWhereEqual( string $name, $value )
- * @method QueryBuilder orWhereNot( string $name, $value )
- * @method QueryBuilder orWhereIn( string $name, array $values )
- * @method QueryBuilder orWhereNotIn( string $name, array $values )
- * @method QueryBuilder orWhereGreaterThan( string $name, $value )
- * @method QueryBuilder orWhereGreaterThanOrEqual( string $name, $value )
- * @method QueryBuilder orWhereLessThan( string $name, $value )
- * @method QueryBuilder orWhereLessThanOrEqual( string $name, $value )
- * @method QueryBuilder orWhereExists( string $name, $value )
- * @method QueryBuilder orWhereType( string $name, $value )
+ * @method QueryBuilder whereNotEqual( string $name, $value )
+ * @method QueryBuilder whereExists( string $name )
+ * @method QueryBuilder whereNotExists( string $name )
  * @method QueryBuilder select( array $fields ) select fields from collection
  * @method QueryBuilder sort( array $fields ) order fields from collection
  * @method array|callable get( int $count = 0 ) get result
+ * @method array mapping() get mapping
  * @method mixed find( $id, bool $get_only_source = true ) get first result only
- * @method \MongoDB\InsertOneResult create( array $data ) Insert an Doc into table
- * @method \MongoDB\InsertManyResult createMany( array $data ) Insert Docs into table
- * @method \MongoDB\UpdateResult update( array $data ) Update Docs
- * @method \MongoDB\DeleteResult delete() Delete Docs
+ * @method array|callable paginate( int $document_per_page = 10, int $current_page = 1 ) get documents paginated
  * @package ElastiCute\ElastiCute
  * @author  Payam Jafari/payamjafari.ir
- * @see     http://payamweber.github.io/mongocute
+ * @see     http://payamweber.github.io/elasticute
  */
 class QueryBuilder
 {
@@ -99,9 +80,20 @@ class QueryBuilder
 	 */
 	protected $is_count = false;
 	
-	protected static $current_depth_info = [
-		'type' => '$and',
-		'conditions' => [],
+	/** @var array $current_depth_info */
+	protected static array $current_depth_info = [
+		0 => [
+			'type' => 'must',
+			'conditions' => [],
+		],
+	];
+	
+	/** @var array $current_group_depth_info */
+	protected static array $current_group_depth_info = [
+		0 => [
+			'type' => 'must',
+			'conditions' => [],
+		],
 	];
 	
 	/**
@@ -112,7 +104,7 @@ class QueryBuilder
 	/**
 	 * this is allowed operators for queries
 	 */
-	protected const ALLOWED_OPERATORS = [ '$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$in', '$nin', '$exists', '$type' ];
+	protected const ALLOWED_OPERATORS = [ 'term', 'match', 'match_all' ];
 	
 	/**
 	 * Model constructor.
@@ -122,14 +114,14 @@ class QueryBuilder
 		$ref       = new \ReflectionClass( ClassLoader::class );
 		$envreader = Dotenv::createImmutable( dirname( $ref->getFileName() ) . '/../../' );
 		$envreader = $envreader->safeLoad();
-		
-		$this->db_address = self::getEnv( 'ELCUTE_DB_ADDRESS', '127.0.0.1' );
-		$this->db_port    = self::getEnv( 'ELCUTE_DB_PORT', '27017' );
-		$this->index_name = self::getEnv( 'ELCUTE_DB_NAME', '' );
-		$this->db_user    = self::getEnv( 'ELCUTE_DB_USERNAME', '' );
-		$this->db_pass    = self::getEnv( 'ELCUTE_DB_PASSWORD', '' );
-		
-		$userpass      = $this->db_user ? "{$this->db_user}:{$this->db_pass}@" : '';
+
+//		$this->db_address = self::getEnv( 'ELCUTE_DB_ADDRESS', '127.0.0.1' );
+//		$this->db_port    = self::getEnv( 'ELCUTE_DB_PORT', '27017' );
+//		$this->index_name = self::getEnv( 'ELCUTE_DB_NAME', '' );
+//		$this->db_user    = self::getEnv( 'ELCUTE_DB_USERNAME', '' );
+//		$this->db_pass    = self::getEnv( 'ELCUTE_DB_PASSWORD', '' );
+
+//		$userpass      = $this->db_user ? "{$this->db_user}:{$this->db_pass}@" : '';
 		$this->elastic = ClientBuilder::create()->build();
 		
 		try {
@@ -141,24 +133,25 @@ class QueryBuilder
 	
 	public function __call( $name, $arguments )
 	{
-		return $this->_call( $name, $arguments );
+		return $this->call( $name, $arguments );
 	}
 	
 	public static function __callStatic( $name, $arguments )
 	{
 		$self = new static();
-		return $self->_call( $name, $arguments );
+		return $self->call( $name, $arguments );
 	}
 	
 	/**
 	 * handle builtin methods as static or non static
 	 *
 	 * @param $name
-	 * @param $arguments
+	 * @param $args
 	 *
-	 * @return $this|mixed|Model
+	 * @return $this|array|callable|DeleteResult|UpdateResult|int
+	 * @throws ElastiCuteException
 	 */
-	protected function _call( $name, $args )
+	protected function call( $name, $args )
 	{
 		$available_args = $args;
 		$args[ 'arg1' ] = $args[ 'tb' ] = $args[ 'count' ] = $args[ 0 ] ?? '';
@@ -168,73 +161,76 @@ class QueryBuilder
 		
 		switch ( $name = strtolower( $name ) ) {
 			case 'index':
-				return $this->selectIndex( $args[ 'arg1' ] );
+				return $this->doSelectIndex( $args[ 'arg1' ] );
 				break;
-			case 'table':
-				return $this->_table( $args[ 'arg1' ] );
+			case 'groupmust':
+				return $this->boolianGroup( $args[ 'arg1' ], 'must' );
 				break;
-			case $name == 'orwhere' ? 'orwhere' : 'where':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], $args[ 'arg3' ], $name == 'orwhere' ? '$or' : '$and' );
+			case 'groupfilter':
+				return $this->boolianGroup( $args[ 'arg1' ], 'filter' );
 				break;
-			case $name == 'orwhereequal' ? 'orwhereequal' : 'whereequal':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$eq', $name == 'orwhereequal' ? '$or' : '$and' );
+			case 'groupshould':
+				return $this->boolianGroup( $args[ 'arg1' ], 'should' );
 				break;
-			case $name == 'orwherenot' ? 'orwherenot' : 'wherenot':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$ne', $name == 'orwherenot' ? '$or' : '$and' );
+			case 'groupmustnot':
+				return $this->boolianGroup( $args[ 'arg1' ], 'must_not' );
 				break;
-			case $name == 'orwheregreaterthan' ? 'orwheregreaterthan' : 'wheregreaterthan':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$gt', $name == 'orwheregreaterthan' ? '$or' : '$and' );
+			case 'wherecontains':
+				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'match' );
 				break;
-			case $name == 'orwheregreaterthanorequal' ? 'orwheregreaterthanorequal' : 'wheregreaterthanorequal':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$gte', $name == 'orwheregreaterthanorequal' ? '$or' : '$and' );
+			case 'whereequal':
+				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
 				break;
-			case $name == 'orwherelessthan' ? 'orwherelessthan' : 'wherelessthan':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$lt', $name == 'orwherelessthan' ? '$or' : '$and' );
+			case 'wherenotequal':
+				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
+					$this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
+				}, 'must_not' );
 				break;
-			case $name == 'orwherelessthanorequal' ? 'orwherelessthanorequal' : 'wherelessthanorequal':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$lte', $name == 'orwherelessthanorequal' ? '$or' : '$and' );
+			case 'wherenotcontains':
+				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
+					$this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'match' );
+				}, 'must_not' );
 				break;
-			case $name == 'orwherein' ? 'orwherein' : 'wherein':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$in', $name == 'orwherein' ? '$or' : '$and' );
+			case 'whereexists':
+				return $this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
 				break;
-			case $name == 'orwherenotin' ? 'orwherenotin' : 'wherenotin':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$nin', $name == 'orwherenotin' ? '$or' : '$and' );
-				break;
-			case $name == 'orwhereexists' ? 'orwhereexists' : 'whereexists':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$exists', $name == 'orwhereexists' ? '$or' : '$and' );
-				break;
-			case $name == 'orwheretype' ? 'orwheretype' : 'wheretype':
-				return $this->_where( $args[ 'arg1' ], $args[ 'arg2' ], '$type', $name == 'orwheretype' ? '$or' : '$and' );
+			case 'wherenotexists':
+				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
+					$this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
+				}, 'must_not' );
 				break;
 			case 'select':
-				return $this->_select( $args[ 'arg1' ] ?: [] );
+				return $this->doSelect( $args[ 'arg1' ] ?: [] );
 				break;
 			case 'sort':
-				return $this->_sort( $args[ 'arg1' ] ?: [] );
+				return $this->doSort( $args[ 'arg1' ] ?: [] );
 				break;
 			case 'create':
-				return $this->_insert( $args[ 'arg1' ] );
+				return $this->doInsert( $args[ 'arg1' ] );
 				break;
 			case 'createmany':
-				return $this->_insert( $args[ 'arg1' ], true );
+				return $this->doInsert( $args[ 'arg1' ], true );
 				break;
 			case 'update':
-				return $this->_update( $args[ 'arg1' ] );
+				return $this->doUpdate( $args[ 'arg1' ] );
 				break;
 			case 'delete':
-				return $this->_delete();
+				return $this->doDelete();
 				break;
 			case 'get':
-				return call_user_func_array( [ self::class, '_get' ], $available_args );
+				return call_user_func_array( [ self::class, 'doGet' ], $available_args );
+				break;
+			case 'paginate':
+				return $this->doGet( $args[ 'arg1' ] !== '' ?: 10, true, $args[ 'arg2' ] !== '' ?: 10 );
 				break;
 			case 'find':
-				return call_user_func_array( [ self::class, '_find' ], $available_args );
+				return call_user_func_array( [ self::class, 'doFind' ], $available_args );
 				break;
 			case 'mapping':
-				return $this->_mapping();
+				return $this->doMapping();
 				break;
 			case 'count':
-				return $this->_count();
+				return $this->doCount();
 				break;
 		}
 		
@@ -253,18 +249,17 @@ class QueryBuilder
 	
 	/**
 	 * @param        $key
-	 * @param string $operator_or_value
 	 * @param string $value
-	 * @param string $type
+	 * @param string $operator
 	 *
 	 * @return $this
 	 */
-	protected function _where( $key, $value = '', $operator = '$eq', $type = '$and' )
+	protected function doWhere( $key, $value = '', $operator = 'match' )
 	{
-		$operator = in_array( $operator, self::ALLOWED_OPERATORS ) ? $operator : '$eq';
+		$operator = in_array( $operator, self::ALLOWED_OPERATORS ) ? $operator : 'match';
 		
 		if ( $key ) {
-			$this->add_where_condition( $key, $value, $operator, $type );
+			$this->addWhereCondition( $key, $value, $operator );
 		}
 		
 		return $this;
@@ -274,63 +269,44 @@ class QueryBuilder
 	 * @param        $key
 	 * @param        $value
 	 * @param string $operator
-	 * @param string $type
+	 * @param array  $extra
 	 */
-	protected function add_where_condition( $key, $value, $operator = '=', $type = '$and' )
+	protected function addWhereCondition( $key, $value, $operator = 'match', array $extra = [] )
 	{
-		if ( $this->query_where ) {
-			if ( $type == '$or' && $this::$current_depth_info[ 'type' ] == '$and' ) {
-				if ( $this->is_group_where ) {
-					$this::$current_depth_info[ 'type' ] = '$or';
-				} else {
-					$this->query_where[ '$or' ] = $this->query_where[ '$and' ];
-					unset( $this->query_where[ '$and' ] );
-				}
-			}
-		} else {
-			$this->query_where[ $type ] = [];
-		}
+		$current_info_count = count( $this::$current_depth_info );
+//		if ( $this->query_where ) {
+//			if ( $type == 'should' && $this::$current_depth_info[ 'type' ] == 'must' ) {
+//				if ( $this->is_group_where ) {
+//					$this::$current_depth_info[ 'type' ] = 'should';
+//				} else {
+//					$this->query_where[ 'should' ] = $this->query_where[ 'must' ];
+//					unset( $this->query_where[ 'must' ] );
+//				}
+//			}
+//		} else {
+//			$this->query_where[ $type ] = [];
+//		}
 		// set group where conditions
-		if ( is_callable( $key ) ) {
-			$is_already_in_group       = $this->is_group_where;
-			$this->is_group_where      = true;
-			$this::$current_depth_info = [
-				'type' => '$and',
-				'conditions' => [],
-			];
-			$key( $this );
-			if ( !$is_already_in_group ) {
-				$this->is_group_where = false;
-			}
-			$index                         = array_keys( $this->query_where );
-			$index                         = reset( $index );
-			$this->query_where[ $index ][] = [
-				$this::$current_depth_info[ 'type' ] => $this::$current_depth_info[ 'conditions' ],
-			];
+		$condition_query = [
+			$operator => [
+				$key => $value,
+			],
+		];
+		
+		if ( $this->is_group_where ) {
+			$this::$current_depth_info[ $current_info_count - 1 ][ 'conditions' ][] = $condition_query;
 		} else {
-			$condition_query = [
-				$key => [
-					$operator => $value,
-				],
-			];
-			
-			if ( $this->is_group_where ) {
-				$this::$current_depth_info[ 'conditions' ][] = $condition_query;
-			} else {
-				$index                         = array_keys( $this->query_where );
-				$index                         = reset( $index );
-				$this->query_where[ $index ][] = $condition_query;
-			}
+			$this->query_where[] = $condition_query;
 		}
 	}
 	
 	/**
-	 * @param array  $fields
-	 * @param string $order
+	 * @param array $fields
+	 * @param string shouldder
 	 *
 	 * @return $this
 	 */
-	protected function _sort( array $fields )
+	protected function doSort( array $fields )
 	{
 		$this->query_sort = $fields;
 		
@@ -338,18 +314,13 @@ class QueryBuilder
 	}
 	
 	/**
-	 * @param $name
+	 * @param array $fields
 	 *
 	 * @return $this
 	 */
-	protected function _select( array $fields )
+	protected function doSelect( array $fields )
 	{
-		$_fields = [];
-		foreach ( $fields as $field ) {
-			$_fields[ $field ] = 1;
-		}
-		
-		$this->query_select = $_fields;
+		$this->query_select = $fields;
 		
 		return $this;
 	}
@@ -363,7 +334,7 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function _join( $db, $field1, $operator, $field2, $type = 'inner join' )
+	protected function join( $db, $field1, $operator, $field2, $type = 'inner join' )
 	{
 		$this->query_join[] = "$type $db on $field1 $operator $field2";
 		
@@ -371,14 +342,37 @@ class QueryBuilder
 	}
 	
 	/**
-	 * @param $name
+	 * @param callable $filters
+	 * @param string   $operator
 	 *
 	 * @return $this
 	 */
-	protected function _table( $name )
+	protected function boolianGroup( callable $filters, $operator = 'must' )
 	{
-		if ( $name )
-			$this->query_table = $name;
+		$current_info_count  = count( $this::$current_depth_info );
+		$is_already_in_group = $this->is_group_where;
+		
+		$this->is_group_where                             = true;
+		$this::$current_depth_info[ $current_info_count ] = [
+			'type' => $operator,
+			'conditions' => [],
+		];
+		$filters( $this );
+		if ( $is_already_in_group ) {
+			$this::$current_depth_info[ $current_info_count - 1 ][ 'conditions' ][] = [
+				'bool' => [
+					$this::$current_depth_info[ $current_info_count ][ 'type' ] =>
+						$this::$current_depth_info[ $current_info_count ][ 'conditions' ],
+				],
+			];
+		} else {
+			$this->is_group_where = false;
+			
+			$this->query_where[][ 'bool' ] = [
+				$this::$current_depth_info[ $current_info_count ][ 'type' ] =>
+					$this::$current_depth_info[ $current_info_count ][ 'conditions' ],
+			];
+		}
 		
 		return $this;
 	}
@@ -390,7 +384,7 @@ class QueryBuilder
 	 * @return mixed
 	 * @throws ElastiCuteException
 	 */
-	protected function _find( $id, bool $get_only_source = true )
+	protected function doFind( $id, bool $get_only_source = true )
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -398,6 +392,7 @@ class QueryBuilder
 		return $this->elastic->$method( [
 			'index' => $this->index_name,
 			'id' => $id,
+			'_source' => $this->query_select,
 		] );
 	}
 	
@@ -409,23 +404,19 @@ class QueryBuilder
 	 * @return array|callable
 	 * @throws ElastiCuteException
 	 */
-	protected function _get( $count = 10, bool $paginate = false, $pagenumber = 1 )
+	protected function doGet( $count = 10, bool $paginate = false, $pagenumber = 1 )
 	{
 		$this->initializeDatabaseAndCollection();
-
-//		var_dump($this->elastic->getSource([
-//			'index' => 'kibana_sample_data_ecommerce',
-//			'id' => 'wDCoxXUBA0stnoJxvwdR']) );
-//		var_dump( $this->query_sort );
-//		die();
+		
 		return $this->elastic->search( [
 			'index' => $this->index_name,
 			'body' => [
-					'query' => $this->query_where ?: [
+					'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
 						'match_all' => (object)[],
 					],
 					'sort' => $this->query_sort ?: (object)[],
 					'size' => intval( $count ?: -1 ),
+					'_source' => $this->query_select,
 				]
 				+ ( $paginate ? [
 					'from' => $pagenumber * $count,
@@ -437,7 +428,7 @@ class QueryBuilder
 	 * @return int
 	 * @throws ElastiCuteException
 	 */
-	protected function _count()
+	protected function doCount()
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -462,7 +453,7 @@ class QueryBuilder
 	 * @return mixed
 	 * @throws ElastiCuteException
 	 */
-	protected function _insert( array $data, $multiple = false )
+	protected function doInsert( array $data, $multiple = false )
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -476,7 +467,7 @@ class QueryBuilder
 	 * @return UpdateResult
 	 * @throws ElastiCuteException
 	 */
-	protected function _update( array $data ): UpdateResult
+	protected function doUpdate( array $data ): UpdateResult
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -489,7 +480,7 @@ class QueryBuilder
 	 * @return DeleteResult
 	 * @throws ElastiCuteException
 	 */
-	protected function _delete(): DeleteResult
+	protected function doDelete(): DeleteResult
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -501,7 +492,7 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function selectIndex( string $name )
+	protected function doSelectIndex( string $name )
 	{
 		$this->index_name = $name;
 		return $this;
@@ -521,7 +512,11 @@ class QueryBuilder
 		}
 	}
 	
-	protected function _mapping()
+	/**
+	 * @return array
+	 * @throws ElastiCuteException
+	 */
+	protected function doMapping()
 	{
 		$this->initializeDatabaseAndCollection();
 		

@@ -22,17 +22,6 @@ $cards = QueryBuilder::query()->index( 'cards' )->get();
 // use $cards for your needs
 ```
 
-## Environment config
-
-You can set your configuration in your project root folder by creating a file named `".env"`
-```dotenv
-ELCUTE_DB_ADDRESS=127.0.0.1
-ELCUTE_DB_PORT=27017
-ELCUTE_DB_NAME=mytestdb
-ELCUTE_DB_USERNAME=
-ELCUTE_DB_PASSWORD=
-```
-
 ### Filter query
 
 For filtering your query you can use several methods such as `where`, `whereNot`, `orWhere`, `...`.
@@ -45,7 +34,7 @@ use ElastiCute\ElastiCute\QueryBuilder;
 $cards = QueryBuilder::query()
     ->index( 'cards' )
     ->whereEqual( 'name', 'foo' )
-    ->whereGreaterThan( 'count', 10 )
+    ->whereNotEqual( 'count', 10 )
     ->get(); // limit documents count by giving a number to "get". Example: get(10);
 
 // use $cards for your needs
@@ -55,18 +44,21 @@ $cards = QueryBuilder::query()
 
 Name | Description
 --- | ---
+`whereContains( string $name, $value )` | Matches values that are contains a specified value.
+`whereNotContains( string $name, $value )` | Matches values that are not contains a specified value.
 `whereEqual( string $name, $value )` | Matches values that are equal to a specified value.
-`whereNot( string $name, $value )` | Matches all values that are not equal to a specified value.
-`whereIn( string $name, array $values )` | Matches any of the values specified in an array.
-`whereNotIn( string $name, array $value )` | Matches none of the values specified in an array.
-`whereGreaterThan( string $name, $value )` | Matches values that are greater than a specified value.
-`whereGreaterThanOrEqual( string $name, $value )` | Matches values that are greater than or equal to a specified value.
-`whereLessThan( string $name, $value )` | Matches values that are less than a specified value.
-`whereLessThanOrEqual( string $name, $value )` | Matches values that are less than or equal to a specified value.
+`whereNotEqual( string $name, $value )` | Matches all values that are not equal to a specified value.
 `whereExists( string $name, $value )` | Matches documents that have the specified field.
-`whereType( string $name, $value )` | Selects documents if a field is of the specified type.
+`whereNotExists( string $name, $value )` | Matches documents that dont have the specified field.
 
-#### Note: All of these can be used with prefix `'or'` and also can be called statically from class.
+### Group Filter Methods
+
+Name | Description
+--- | ---
+`groupShould( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupMust( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupMustNot( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupFilter( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
 
 ### Group Filter
 
@@ -79,10 +71,15 @@ use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
-    ->where( function( QueryBuilder $builder ){
-        $builder->whereIn( 'name', [ 'foo', 'bar' ] );
-        $builder->orWhereIn( 'name', [ 'foo2', 'bar2' ] );
+    ->groupShould( function( QueryBuilder $builder ){
+        $builder->whereEqual( 'name', 'payam' );
+        $builder->whereNotEqual( 'name', 'kourosh' );
+        $builder->groupMust( function( QueryBuilder $builder ){
+            $builder->whereExists( 'lastname' );
+            $builder->whereContains( 'name', 'kourosh2' );
+        } );
     } )
+    ->whereNotContains( 'lastname', 'weber' )
     ->get();
 
 // use $cards for your needs
@@ -107,6 +104,20 @@ $cards = QueryBuilder::query()
 // use $cards for your needs
 ```
 
+### Paginate documents
+
+```php
+<?php
+
+use ElastiCute\ElastiCute\QueryBuilder;
+
+$cards = QueryBuilder::query()
+    ->index( 'cards' )
+    ->paginate( 10, 1 ); // paginate( int $document_per_page = 10, int $current_page = 1 )
+
+// use $cards for your needs
+```
+
 ### Select specific fields
 
 ```php
@@ -120,56 +131,6 @@ $cards = QueryBuilder::query()
     ->get();
 
 // use $cards for your needs
-```
-
-### Create/CreateMany
-
-You can create a document by using "create" method or multiple by using "createMany" method.
-
-```php
-<?php
-
-use ElastiCute\ElastiCute\QueryBuilder;
-
-$card = QueryBuilder::query()
-    ->index( 'cards' )
-    ->create( [ 'name' => 'foo', 'size' => 'medium' ] );
-$cards = QueryBuilder::query()
-    ->index( 'cards' )
-    ->createMany( [
-        [ 'name' => 'foo', 'size' => 'medium' ],
-        [ 'name' => 'foo2', 'size' => 'large' ],
-    ] );
-```
-
-### Update
-
-You can update documents by using "update" method.
-
-```php
-<?php
-
-use ElastiCute\ElastiCute\QueryBuilder;
-
-$update = QueryBuilder::query()
-    ->index( 'cards' )
-    ->whereEqual( 'name', 'foo' ) // your filters come here before update
-    ->update( [ 'name' => 'foo2' ] );
-```
-
-### Delete
-
-You can delete documents by using "delete" method.
-
-```php
-<?php
-
-use ElastiCute\ElastiCute\QueryBuilder;
-
-$update = QueryBuilder::query()
-    ->index( 'cards' )
-    ->whereEqual( 'name', 'foo' ) // your filters come here before delete
-    ->delete();
 ```
 
 ### Select index at runtime
@@ -199,4 +160,35 @@ use ElastiCute\ElastiCute\QueryBuilder;
 $card = QueryBuilder::query()
     ->index( 'cards' )
     ->find( 'wDCoxXUBA0stnoJxvwdR', true ); // find( $id, bool $get_only_source = true )
+```
+
+### Get index mapping
+
+By calling method "mapping", you can retrieve the index mapping.
+
+```php
+<?php
+
+use ElastiCute\ElastiCute\QueryBuilder;
+
+$card = QueryBuilder::query()
+    ->index( 'cards' )
+    ->mapping();
+```
+
+### Pro tip :)
+
+You dont have to call "query" method at the first. you can directly call filters right at the beginning.
+
+```php
+<?php
+
+use ElastiCute\ElastiCute\QueryBuilder;
+
+$card = QueryBuilder::index( 'cards' )
+    ->find( 'wDCoxXUBA0stnoJxvwdR', true ); // find( $id, bool $get_only_source = true )
+
+$cards = QueryBuilder::whereEqual( 'name', 'foo' )
+    ->index( 'cards' )
+    ->get();
 ```
