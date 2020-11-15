@@ -85,6 +85,39 @@ $cards = QueryBuilder::query()
 // use $cards for your needs
 ```
 
+### Aggregations
+
+Aggregations are so important and could be used anywhere. So you can use it very easy. Take a look at the example.
+
+```php
+<?php
+
+use ElastiCute\ElastiCute\QueryBuilder;
+use \ElastiCute\ElastiCute\AggregationQuery;
+
+$cards = QueryBuilder::query()
+    ->index( 'cards' )
+    ->aggregate( function( AggregationQuery $builder ){
+        $builder->avgBasic( 'comments_count', 'count' );
+        $builder->avgScript( 'my_aggregate', 'script_name', [
+            'foo' => 'bar',
+            'name' => 'weber',
+        ] );
+    } )
+    ->whereNotContains( 'lastname', 'weber' )
+    ->get();
+
+// response will include $cards['aggregations']
+```
+
+### Aggregation methods
+
+Name | Description
+--- | ---
+`avgBasic( string $label, string $field )` | Aggregate based on 'avg' type as simple method
+`avgScript( string $label, string $script_name, array $script_params = null )` | Aggregate based on 'avg' type but uses an script
+###### **Note**: More aggregations will be added over time :)
+
 ### Sort / OrderBy
 
 ```php

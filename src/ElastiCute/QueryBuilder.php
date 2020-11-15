@@ -5,12 +5,14 @@ namespace ElastiCute\ElastiCute;
 use Composer\Autoload\ClassLoader;
 use Dotenv\Dotenv;
 use Elasticsearch\ClientBuilder;
+use Elasticsearch\Common\Exceptions\BadRequest400Exception;
 
 /**
  * Class QueryBuilder
  *
  * @method QueryBuilder index( $name )
  * @method QueryBuilder table( $name )
+ * @method QueryBuilder aggregate( callable $aggregations )
  * @method QueryBuilder groupShould( callable $filters )
  * @method QueryBuilder groupMust( callable $filters )
  * @method QueryBuilder groupMustNot( callable $filters )
@@ -150,6 +152,8 @@ class QueryBuilder
 		switch ( $name = strtolower( $name ) ) {
 			case 'index':
 				return $this->doSelectIndex( $args[ 'arg1' ] );
+			case 'aggregate':
+				return $this->doAggregate( $args[ 'arg1' ] );
 			case 'groupmust':
 				return $this->boolianGroup( $args[ 'arg1' ], 'must' );
 			case 'groupfilter':
@@ -160,7 +164,7 @@ class QueryBuilder
 				return $this->boolianGroup( $args[ 'arg1' ], 'must_not' );
 			case 'wherecontains':
 				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
-					isset( $available_args[2] ) ? ( $available_args[2] ? 'match_phrase' : 'match' ) : 'match' );
+					isset( $available_args[ 2 ] ) ? ( $available_args[ 2 ] ? 'match_phrase' : 'match' ) : 'match' );
 			case 'whereequal':
 				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
 			case 'wherenotequal':
@@ -170,7 +174,7 @@ class QueryBuilder
 			case 'wherenotcontains':
 				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args, $available_args ) {
 					$builder->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
-						isset( $available_args[2] ) ? ( $available_args[2] ? 'match_phrase' : 'match' ) : 'match' );
+						isset( $available_args[ 2 ] ) ? ( $available_args[ 2 ] ? 'match_phrase' : 'match' ) : 'match' );
 				}, 'must_not' );
 			case 'whereexists':
 				return $this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
@@ -347,11 +351,18 @@ class QueryBuilder
 		$this->initializeDatabaseAndCollection();
 		
 		$method = $get_only_source ? 'getSource' : 'get';
-		return $this->elastic->$method( [
-			'index' => $this->index_name,
-			'id' => $id,
-			'_source' => $this->query_select,
-		] );
+		
+		try {
+			return $this->elastic->$method( [
+				'index' => $this->index_name,
+				'id' => $id,
+				'_source' => $this->query_select,
+			] );
+		} catch ( BadRequest400Exception $exception ) {
+			$error_message = json_decode( $exception->getMessage(), true );
+			
+			throw new ElastiCuteException( $error_message[ 'error' ][ 'root_cause' ][ 0 ][ 'reason' ] ?? $exception->getMessage(), 400 );
+		}
 	}
 	
 	/**
@@ -366,20 +377,29 @@ class QueryBuilder
 	{
 		$this->initializeDatabaseAndCollection();
 		
-		return $this->elastic->search( [
-			'index' => $this->index_name,
-			'body' => [
-					'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
-						'match_all' => (object)[],
-					],
-					'sort' => $this->query_sort ?: (object)[],
-					'size' => intval( $count ?: -1 ),
-					'_source' => $this->query_select,
-				]
-				+ ( $paginate ? [
-					'from' => $page_number * $count,
-				] : [] ),
-		] );
+		try {
+			return $this->elastic->search( [
+				'index' => $this->index_name,
+				'body' => [
+						'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
+							'match_all' => (object)[],
+						],
+						'sort' => $this->query_sort ?: (object)[],
+						'size' => intval( $count ?: -1 ),
+						'_source' => $this->query_select,
+					]
+					+ ( $paginate ? [
+						'from' => $page_number * $count,
+					] : [] )
+					+ ( $this->query_aggregation ? [
+						'aggs' => $this->query_aggregation,
+					] : [] ),
+			] );
+		} catch ( BadRequest400Exception $exception ) {
+			$error_message = json_decode( $exception->getMessage(), true );
+			
+			throw new ElastiCuteException( $error_message[ 'error' ][ 'root_cause' ][ 0 ][ 'reason' ] ?? $exception->getMessage(), 400 );
+		}
 	}
 	
 	/**
@@ -442,5 +462,24 @@ class QueryBuilder
 		$aggregations( $aggregation_query );
 		$this->query_aggregation = $aggregation_query->getAggregationList();
 		return $this;
+	}
+	
+	/**
+	 * Die and dump
+	 * Developer Only
+	 *
+	 * @param $var
+	 */
+	public static function dieAndDump( $var )
+	{
+		if ( is_array( $var ) ) {
+			header( 'Content-Type: application/json' );
+			echo json_encode( $var );
+			die();
+		} else {
+			echo "<pre>";
+			var_dump( $var );
+			die();
+		}
 	}
 }

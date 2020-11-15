@@ -1,5 +1,6 @@
 <?php
 
+use ElastiCute\ElastiCute\AggregationQuery;
 use ElastiCute\ElastiCute\QueryBuilder;
 
 require './vendor/autoload.php';
@@ -24,10 +25,12 @@ $query = QueryBuilder::query()
 		} );
 		$builder->whereNotEqual( 'name', 'payam13' );
 	} )
-	->whereNotEqual( 'currency', 'EUR' )
+	->whereNotEqual( 'currency', 'EUR2' )
 	->select( [ 'currency' ] )
-	->mapping();
+	->aggregate( function( AggregationQuery $query ){
+		$query->avgBasic( 'my_group', 'day_of_week_i' );
+	} )
+	->get();
 
 
-echo "<pre>";
-var_dump( $query );
+QueryBuilder::dieAndDump( $query );
