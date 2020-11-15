@@ -51,15 +51,6 @@ Name | Description
 `whereExists( string $name )` | Matches documents that have the specified field.
 `whereNotExists( string $name )` | Matches documents that dont have the specified field.
 
-### Group Filter Methods
-
-Name | Description
---- | ---
-`groupShould( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
-`groupMust( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
-`groupMustNot( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
-`groupFilter( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
-
 ### Group Filter
 
 You can set your filters as a group by just adding a closure to "where" method.
@@ -84,6 +75,15 @@ $cards = QueryBuilder::query()
 
 // use $cards for your needs
 ```
+
+### Group Filter Methods
+
+Name | Description
+--- | ---
+`groupShould( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupMust( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupMustNot( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
+`groupFilter( callable $filters )` | [See Official Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)
 
 ### Aggregations
 
