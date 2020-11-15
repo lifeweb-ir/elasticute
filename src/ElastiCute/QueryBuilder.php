@@ -15,8 +15,8 @@ use Elasticsearch\ClientBuilder;
  * @method QueryBuilder groupMust( callable $filters )
  * @method QueryBuilder groupMustNot( callable $filters )
  * @method QueryBuilder groupFilter( callable $filters )
- * @method QueryBuilder whereContains( string $name, $value = '' )
- * @method QueryBuilder whereNotContains( string $name, $value = '' )
+ * @method QueryBuilder whereContains( string $name, $value = '', bool $match_phrase = false )
+ * @method QueryBuilder whereNotContains( string $name, $value = '', bool $match_phrase = false )
  * @method QueryBuilder whereEqual( string $name, $value )
  * @method QueryBuilder whereNotEqual( string $name, $value )
  * @method QueryBuilder whereExists( string $name )
@@ -55,30 +55,18 @@ class QueryBuilder
 	 */
 	protected array $query_sort = [];
 	
-	/**
-	 * @var string $query_groupby
-	 */
-	protected $query_groupby;
+	/** @var array $query_aggregation */
+	protected array $query_aggregation = [];
 	
 	/**
 	 * @var array $query_select
 	 */
-	protected $query_select = [];
-	
-	/**
-	 * @var string $query_table
-	 */
-	protected string $query_table = '';
+	protected array $query_select = [];
 	
 	/**
 	 * @var bool $is_group_where
 	 */
 	protected bool $is_group_where = false;
-	
-	/**
-	 * @var bool $is_count
-	 */
-	protected $is_count = false;
 	
 	/** @var array $current_depth_info */
 	protected static array $current_depth_info = [
@@ -143,12 +131,12 @@ class QueryBuilder
 	}
 	
 	/**
-	 * handle builtin methods as static or non static
+	 * Handle builtin methods as static or non static
 	 *
 	 * @param $name
 	 * @param $args
 	 *
-	 * @return $this|array|callable|DeleteResult|UpdateResult|int
+	 * @return $this|array|callable
 	 * @throws ElastiCuteException
 	 */
 	protected function call( $name, $args )
@@ -162,76 +150,46 @@ class QueryBuilder
 		switch ( $name = strtolower( $name ) ) {
 			case 'index':
 				return $this->doSelectIndex( $args[ 'arg1' ] );
-				break;
 			case 'groupmust':
 				return $this->boolianGroup( $args[ 'arg1' ], 'must' );
-				break;
 			case 'groupfilter':
 				return $this->boolianGroup( $args[ 'arg1' ], 'filter' );
-				break;
 			case 'groupshould':
 				return $this->boolianGroup( $args[ 'arg1' ], 'should' );
-				break;
 			case 'groupmustnot':
 				return $this->boolianGroup( $args[ 'arg1' ], 'must_not' );
-				break;
 			case 'wherecontains':
-				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'match' );
-				break;
+				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
+					isset( $available_args[2] ) ? ( $available_args[2] ? 'match_phrase' : 'match' ) : 'match' );
 			case 'whereequal':
 				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
-				break;
 			case 'wherenotequal':
 				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
-					$this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
+					$builder->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
 				}, 'must_not' );
-				break;
 			case 'wherenotcontains':
-				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
-					$this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'match' );
+				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args, $available_args ) {
+					$builder->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
+						isset( $available_args[2] ) ? ( $available_args[2] ? 'match_phrase' : 'match' ) : 'match' );
 				}, 'must_not' );
-				break;
 			case 'whereexists':
 				return $this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
-				break;
 			case 'wherenotexists':
 				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
-					$this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
+					$builder->doWhere( 'field', $args[ 'arg1' ], 'exists' );
 				}, 'must_not' );
-				break;
 			case 'select':
 				return $this->doSelect( $args[ 'arg1' ] ?: [] );
-				break;
 			case 'sort':
 				return $this->doSort( $args[ 'arg1' ] ?: [] );
-				break;
-			case 'create':
-				return $this->doInsert( $args[ 'arg1' ] );
-				break;
-			case 'createmany':
-				return $this->doInsert( $args[ 'arg1' ], true );
-				break;
-			case 'update':
-				return $this->doUpdate( $args[ 'arg1' ] );
-				break;
-			case 'delete':
-				return $this->doDelete();
-				break;
 			case 'get':
 				return call_user_func_array( [ self::class, 'doGet' ], $available_args );
-				break;
 			case 'paginate':
 				return $this->doGet( $args[ 'arg1' ] !== '' ?: 10, true, $args[ 'arg2' ] !== '' ?: 10 );
-				break;
 			case 'find':
 				return call_user_func_array( [ self::class, 'doFind' ], $available_args );
-				break;
 			case 'mapping':
 				return $this->doMapping();
-				break;
-			case 'count':
-				return $this->doCount();
-				break;
 		}
 		
 		return $this;
@@ -399,12 +357,12 @@ class QueryBuilder
 	/**
 	 * @param int  $count
 	 * @param bool $paginate
-	 * @param int  $pagenumber
+	 * @param int  $page_number
 	 *
 	 * @return array|callable
 	 * @throws ElastiCuteException
 	 */
-	protected function doGet( $count = 10, bool $paginate = false, $pagenumber = 1 )
+	protected function doGet( $count = 10, bool $paginate = false, $page_number = 1 )
 	{
 		$this->initializeDatabaseAndCollection();
 		
@@ -419,20 +377,9 @@ class QueryBuilder
 					'_source' => $this->query_select,
 				]
 				+ ( $paginate ? [
-					'from' => $pagenumber * $count,
+					'from' => $page_number * $count,
 				] : [] ),
 		] );
-	}
-	
-	/**
-	 * @return int
-	 * @throws ElastiCuteException
-	 */
-	protected function doCount()
-	{
-		$this->initializeDatabaseAndCollection();
-		
-		return $this->elastic->countDocuments( $this->query_where );
 	}
 	
 	/**
@@ -444,47 +391,6 @@ class QueryBuilder
 	protected static function getEnv( $name, $default = null )
 	{
 		return isset( $_ENV[ $name ] ) ? $_ENV[ $name ] : $default;
-	}
-	
-	/**
-	 * @param array $data
-	 * @param bool  $multiple
-	 *
-	 * @return mixed
-	 * @throws ElastiCuteException
-	 */
-	protected function doInsert( array $data, $multiple = false )
-	{
-		$this->initializeDatabaseAndCollection();
-		
-		$call = $multiple ? 'insertMany' : 'insertOne';
-		return $this->elastic->$call( $data );
-	}
-	
-	/**
-	 * @param array $data
-	 *
-	 * @return UpdateResult
-	 * @throws ElastiCuteException
-	 */
-	protected function doUpdate( array $data ): UpdateResult
-	{
-		$this->initializeDatabaseAndCollection();
-		
-		return $this->elastic->updateMany( $this->query_where, [
-			'$set' => $data,
-		] );
-	}
-	
-	/**
-	 * @return DeleteResult
-	 * @throws ElastiCuteException
-	 */
-	protected function doDelete(): DeleteResult
-	{
-		$this->initializeDatabaseAndCollection();
-		
-		return $this->elastic->deleteMany( $this->query_where );
 	}
 	
 	/**
@@ -523,5 +429,18 @@ class QueryBuilder
 		return $this->elastic->indices()->getMapping( [
 			'index' => $this->index_name,
 		] );
+	}
+	
+	/**
+	 * @param callable $aggregations
+	 *
+	 * @return $this
+	 */
+	protected function doAggregate( callable $aggregations )
+	{
+		$aggregation_query = new AggregationQuery( $this );
+		$aggregations( $aggregation_query );
+		$this->query_aggregation = $aggregation_query->getAggregationList();
+		return $this;
 	}
 }

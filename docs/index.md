@@ -48,8 +48,8 @@ Name | Description
 `whereNotContains( string $name, $value )` | Matches values that are not contains a specified value.
 `whereEqual( string $name, $value )` | Matches values that are equal to a specified value.
 `whereNotEqual( string $name, $value )` | Matches all values that are not equal to a specified value.
-`whereExists( string $name, $value )` | Matches documents that have the specified field.
-`whereNotExists( string $name, $value )` | Matches documents that dont have the specified field.
+`whereExists( string $name )` | Matches documents that have the specified field.
+`whereNotExists( string $name )` | Matches documents that dont have the specified field.
 
 ### Group Filter Methods
 
