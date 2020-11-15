@@ -93,7 +93,7 @@ Aggregations are so important and could be used anywhere. So you can use it very
 <?php
 
 use ElastiCute\ElastiCute\QueryBuilder;
-use \ElastiCute\ElastiCute\AggregationQuery;
+use ElastiCute\ElastiCute\AggregationQuery;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )

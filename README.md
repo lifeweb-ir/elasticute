@@ -93,7 +93,7 @@ Aggregations are so important and could be used anywhere. So you can use it very
 <?php
 
 use ElastiCute\ElastiCute\QueryBuilder;
-use \ElastiCute\ElastiCute\AggregationQuery;
+use ElastiCute\ElastiCute\AggregationQuery;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -115,7 +115,9 @@ $cards = QueryBuilder::query()
 Name | Description
 --- | ---
 `avgBasic( string $label, string $field )` | Aggregate based on 'avg' type as simple method
+`avgAdvanced( string $label, string $field, float $missing = 0 )` | Aggregate based on 'avg' type but has more options
 `avgScript( string $label, string $script_name, array $script_params = null )` | Aggregate based on 'avg' type but uses an script
+
 ###### **Note**: More aggregations will be added over time :)
 
 ### Sort / OrderBy

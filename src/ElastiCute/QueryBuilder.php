@@ -4,6 +4,7 @@ namespace ElastiCute\ElastiCute;
 
 use Composer\Autoload\ClassLoader;
 use Dotenv\Dotenv;
+use Elasticsearch\Client;
 use Elasticsearch\ClientBuilder;
 use Elasticsearch\Common\Exceptions\BadRequest400Exception;
 
@@ -137,6 +138,7 @@ class QueryBuilder
 	 *
 	 * @param $name
 	 * @param $args
+	 * @todo refactor this in near future :)
 	 *
 	 * @return $this|array|callable
 	 * @throws ElastiCuteException
