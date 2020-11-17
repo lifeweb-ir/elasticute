@@ -4,40 +4,22 @@ namespace ElastiCute\ElastiCute;
 
 use Composer\Autoload\ClassLoader;
 use Dotenv\Dotenv;
-use Elasticsearch\Client;
 use Elasticsearch\ClientBuilder;
-use Elasticsearch\Common\Exceptions\BadRequest400Exception;
+use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
 
 /**
  * Class QueryBuilder
  *
- * @method QueryBuilder index( $name )
- * @method QueryBuilder table( $name )
- * @method QueryBuilder aggregate( callable $aggregations )
- * @method QueryBuilder groupShould( callable $filters )
- * @method QueryBuilder groupMust( callable $filters )
- * @method QueryBuilder groupMustNot( callable $filters )
- * @method QueryBuilder groupFilter( callable $filters )
- * @method QueryBuilder whereContains( string $name, $value = '', bool $match_phrase = false )
- * @method QueryBuilder whereNotContains( string $name, $value = '', bool $match_phrase = false )
- * @method QueryBuilder whereEqual( string $name, $value )
- * @method QueryBuilder whereNotEqual( string $name, $value )
- * @method QueryBuilder whereExists( string $name )
- * @method QueryBuilder whereNotExists( string $name )
- * @method QueryBuilder select( array $fields ) select fields from collection
- * @method QueryBuilder sort( array $fields ) order fields from collection
- * @method array|callable get( int $count = 0 ) get result
- * @method array mapping() get mapping
- * @method mixed find( $id, bool $get_only_source = true ) get first result only
- * @method array|callable paginate( int $document_per_page = 10, int $current_page = 1 ) get documents paginated
  * @package ElastiCute\ElastiCute
  * @author  Payam Jafari/payamjafari.ir
  * @see     http://payamweber.github.io/elasticute
  */
 class QueryBuilder
 {
+	use ElastiCuteFilters;
+	
 	/**
-	 * Databse credensials
+	 * Database credentials
 	 */
 	protected string $db_address;
 	protected string $db_port;
@@ -79,14 +61,6 @@ class QueryBuilder
 		],
 	];
 	
-	/** @var array $current_group_depth_info */
-	protected static array $current_group_depth_info = [
-		0 => [
-			'type' => 'must',
-			'conditions' => [],
-		],
-	];
-	
 	/**
 	 * @var \Elasticsearch\Client $elastic
 	 */
@@ -102,7 +76,7 @@ class QueryBuilder
 	 */
 	public function __construct()
 	{
-		$ref       = new \ReflectionClass( ClassLoader::class );
+		$ref = new \ReflectionClass( ClassLoader::class );
 		$envreader = Dotenv::createImmutable( dirname( $ref->getFileName() ) . '/../../' );
 		$envreader = $envreader->safeLoad();
 
@@ -113,7 +87,6 @@ class QueryBuilder
 //		$this->db_pass    = self::getEnv( 'ELCUTE_DB_PASSWORD', '' );
 
 //		$userpass      = $this->db_user ? "{$this->db_user}:{$this->db_pass}@" : '';
-		$this->elastic = ClientBuilder::create()->build();
 		
 		try {
 			$this->connected = true;
@@ -122,83 +95,21 @@ class QueryBuilder
 		}
 	}
 	
-	public function __call( $name, $arguments )
-	{
-		return $this->call( $name, $arguments );
-	}
-	
+	/**
+	 * @param $name
+	 * @param $arguments
+	 *
+	 * @return mixed|static
+	 */
 	public static function __callStatic( $name, $arguments )
 	{
 		$self = new static();
-		return $self->call( $name, $arguments );
-	}
-	
-	/**
-	 * Handle builtin methods as static or non static
-	 *
-	 * @param $name
-	 * @param $args
-	 * @todo refactor this in near future :)
-	 *
-	 * @return $this|array|callable
-	 * @throws ElastiCuteException
-	 */
-	protected function call( $name, $args )
-	{
-		$available_args = $args;
-		$args[ 'arg1' ] = $args[ 'tb' ] = $args[ 'count' ] = $args[ 0 ] ?? '';
-		$args[ 'arg2' ] = $args[ 'field1' ] = $args[ 1 ] ?? '';
-		$args[ 'arg3' ] = $args[ 'join_operator' ] = $args[ 2 ] ?? '';
-		$args[ 'arg4' ] = $args[ 3 ] ?? '';
 		
-		switch ( $name = strtolower( $name ) ) {
-			case 'index':
-				return $this->doSelectIndex( $args[ 'arg1' ] );
-			case 'aggregate':
-				return $this->doAggregate( $args[ 'arg1' ] );
-			case 'groupmust':
-				return $this->boolianGroup( $args[ 'arg1' ], 'must' );
-			case 'groupfilter':
-				return $this->boolianGroup( $args[ 'arg1' ], 'filter' );
-			case 'groupshould':
-				return $this->boolianGroup( $args[ 'arg1' ], 'should' );
-			case 'groupmustnot':
-				return $this->boolianGroup( $args[ 'arg1' ], 'must_not' );
-			case 'wherecontains':
-				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
-					isset( $available_args[ 2 ] ) ? ( $available_args[ 2 ] ? 'match_phrase' : 'match' ) : 'match' );
-			case 'whereequal':
-				return $this->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
-			case 'wherenotequal':
-				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
-					$builder->doWhere( $args[ 'arg1' ], $args[ 'arg2' ], 'term' );
-				}, 'must_not' );
-			case 'wherenotcontains':
-				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args, $available_args ) {
-					$builder->doWhere( $args[ 'arg1' ], $args[ 'arg2' ],
-						isset( $available_args[ 2 ] ) ? ( $available_args[ 2 ] ? 'match_phrase' : 'match' ) : 'match' );
-				}, 'must_not' );
-			case 'whereexists':
-				return $this->doWhere( 'field', $args[ 'arg1' ], 'exists' );
-			case 'wherenotexists':
-				return $this->boolianGroup( function ( QueryBuilder $builder ) use ( $args ) {
-					$builder->doWhere( 'field', $args[ 'arg1' ], 'exists' );
-				}, 'must_not' );
-			case 'select':
-				return $this->doSelect( $args[ 'arg1' ] ?: [] );
-			case 'sort':
-				return $this->doSort( $args[ 'arg1' ] ?: [] );
-			case 'get':
-				return call_user_func_array( [ self::class, 'doGet' ], $available_args );
-			case 'paginate':
-				return $this->doGet( $args[ 'arg1' ] !== '' ?: 10, true, $args[ 'arg2' ] !== '' ?: 10 );
-			case 'find':
-				return call_user_func_array( [ self::class, 'doFind' ], $available_args );
-			case 'mapping':
-				return $this->doMapping();
+		if ( ! $name ) {
+			return $self;
 		}
 		
-		return $this;
+		return call_user_func_array( [ $self, $name ], $arguments );
 	}
 	
 	/**
@@ -206,7 +117,7 @@ class QueryBuilder
 	 *
 	 * @return static
 	 */
-	public static function query(): self
+	public static function query() : self
 	{
 		return self::__callStatic( '', [] );
 	}
@@ -258,7 +169,7 @@ class QueryBuilder
 		];
 		
 		if ( $this->is_group_where ) {
-			$this::$current_depth_info[ $current_info_count - 1 ][ 'conditions' ][] = $condition_query;
+			$this::$current_depth_info[$current_info_count - 1]['conditions'][] = $condition_query;
 		} else {
 			$this->query_where[] = $condition_query;
 		}
@@ -270,7 +181,7 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function doSort( array $fields )
+	public function sort( array $fields )
 	{
 		$this->query_sort = $fields;
 		
@@ -282,25 +193,9 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function doSelect( array $fields )
+	public function select( array $fields )
 	{
 		$this->query_select = $fields;
-		
-		return $this;
-	}
-	
-	/**
-	 * @param        $db
-	 * @param        $field1
-	 * @param        $operator
-	 * @param        $field2
-	 * @param string $type
-	 *
-	 * @return $this
-	 */
-	protected function join( $db, $field1, $operator, $field2, $type = 'inner join' )
-	{
-		$this->query_join[] = "$type $db on $field1 $operator $field2";
 		
 		return $this;
 	}
@@ -313,28 +208,28 @@ class QueryBuilder
 	 */
 	protected function boolianGroup( callable $filters, $operator = 'must' )
 	{
-		$current_info_count  = count( $this::$current_depth_info );
+		$current_info_count = count( $this::$current_depth_info );
 		$is_already_in_group = $this->is_group_where;
 		
-		$this->is_group_where                             = true;
-		$this::$current_depth_info[ $current_info_count ] = [
+		$this->is_group_where = true;
+		$this::$current_depth_info[$current_info_count] = [
 			'type' => $operator,
 			'conditions' => [],
 		];
 		$filters( $this );
 		if ( $is_already_in_group ) {
-			$this::$current_depth_info[ $current_info_count - 1 ][ 'conditions' ][] = [
+			$this::$current_depth_info[$current_info_count - 1]['conditions'][] = [
 				'bool' => [
-					$this::$current_depth_info[ $current_info_count ][ 'type' ] =>
-						$this::$current_depth_info[ $current_info_count ][ 'conditions' ],
+					$this::$current_depth_info[$current_info_count]['type'] =>
+						$this::$current_depth_info[$current_info_count]['conditions'],
 				],
 			];
 		} else {
 			$this->is_group_where = false;
 			
-			$this->query_where[][ 'bool' ] = [
-				$this::$current_depth_info[ $current_info_count ][ 'type' ] =>
-					$this::$current_depth_info[ $current_info_count ][ 'conditions' ],
+			$this->query_where[]['bool'] = [
+				$this::$current_depth_info[$current_info_count]['type'] =>
+					$this::$current_depth_info[$current_info_count]['conditions'],
 			];
 		}
 		
@@ -343,28 +238,69 @@ class QueryBuilder
 	
 	/**
 	 * @param      $id
-	 * @param bool $get_only_source
+	 * @param bool $source_only
 	 *
-	 * @return mixed
+	 * @return ElastiCuteResponse
 	 * @throws ElastiCuteException
 	 */
-	protected function doFind( $id, bool $get_only_source = true )
+	public function find( $id, bool $source_only = true )
 	{
 		$this->initializeDatabaseAndCollection();
 		
-		$method = $get_only_source ? 'getSource' : 'get';
+		$runner = new ElastiCuteRunner();
 		
-		try {
-			return $this->elastic->$method( [
-				'index' => $this->index_name,
-				'id' => $id,
-				'_source' => $this->query_select,
-			] );
-		} catch ( BadRequest400Exception $exception ) {
-			$error_message = json_decode( $exception->getMessage(), true );
-			
-			throw new ElastiCuteException( $error_message[ 'error' ][ 'root_cause' ][ 0 ][ 'reason' ] ?? $exception->getMessage(), 400 );
-		}
+		return $runner->find( [
+			'index' => $this->index_name,
+			'id' => $id,
+			'_source' => $this->query_select,
+		], $source_only );
+	}
+	
+	/**
+	 * @param int $count
+	 *
+	 * @return Response\MappableResponse
+	 * @throws ElastiCuteException
+	 */
+	public function get( int $count = 10 )
+	{
+		return $this->doGet( $count );
+	}
+	
+	/**
+	 * @param int $document_per_page
+	 * @param int $page_number
+	 *
+	 * @return Response\MappableResponse
+	 * @throws ElastiCuteException
+	 */
+	public function paginate( int $document_per_page = 10, $page_number = 1 )
+	{
+		return $this->doGet( $document_per_page, true, $page_number );
+	}
+	
+	/**
+	 * @return array
+	 */
+	public function generateBody()
+	{
+		return [
+			'index' => $this->index_name,
+			'body' => [
+					'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
+						'match_all' => (object) [],
+					],
+					'sort' => $this->query_sort ?: (object) [],
+					'size' => intval( $count ?: -1 ),
+					'_source' => $this->query_select,
+				]
+				+ ( $paginate ? [
+					'from' => $page_number * $count,
+				] : [] )
+				+ ( $this->query_aggregation ? [
+					'aggs' => $this->query_aggregation,
+				] : [] ),
+		];
 	}
 	
 	/**
@@ -372,36 +308,32 @@ class QueryBuilder
 	 * @param bool $paginate
 	 * @param int  $page_number
 	 *
-	 * @return array|callable
+	 * @return Response\MappableResponse
 	 * @throws ElastiCuteException
 	 */
 	protected function doGet( $count = 10, bool $paginate = false, $page_number = 1 )
 	{
 		$this->initializeDatabaseAndCollection();
 		
-		try {
-			return $this->elastic->search( [
-				'index' => $this->index_name,
-				'body' => [
-						'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
-							'match_all' => (object)[],
-						],
-						'sort' => $this->query_sort ?: (object)[],
-						'size' => intval( $count ?: -1 ),
-						'_source' => $this->query_select,
-					]
-					+ ( $paginate ? [
-						'from' => $page_number * $count,
-					] : [] )
-					+ ( $this->query_aggregation ? [
-						'aggs' => $this->query_aggregation,
-					] : [] ),
-			] );
-		} catch ( BadRequest400Exception $exception ) {
-			$error_message = json_decode( $exception->getMessage(), true );
-			
-			throw new ElastiCuteException( $error_message[ 'error' ][ 'root_cause' ][ 0 ][ 'reason' ] ?? $exception->getMessage(), 400 );
-		}
+		$runner = new ElastiCuteRunner();
+		
+		return $runner->search( [
+			'index' => $this->index_name,
+			'body' => [
+					'query' => [ 'bool' => [ 'must' => $this->query_where ] ] ?: [
+						'match_all' => (object) [],
+					],
+					'sort' => $this->query_sort ?: (object) [],
+					'size' => intval( $count ?: -1 ),
+					'_source' => $this->query_select,
+				]
+				+ ( $paginate ? [
+					'from' => $page_number * $count,
+				] : [] )
+				+ ( $this->query_aggregation ? [
+					'aggs' => $this->query_aggregation,
+				] : [] ),
+		] );
 	}
 	
 	/**
@@ -412,7 +344,7 @@ class QueryBuilder
 	 */
 	protected static function getEnv( $name, $default = null )
 	{
-		return isset( $_ENV[ $name ] ) ? $_ENV[ $name ] : $default;
+		return isset( $_ENV[$name] ) ? $_ENV[$name] : $default;
 	}
 	
 	/**
@@ -420,10 +352,16 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function doSelectIndex( string $name )
+	public function index( string $name )
 	{
-		$this->index_name = $name;
-		return $this;
+		if ( isset( $this ) ) {
+			$self = $this;
+		} else {
+			$self = new static();
+		}
+		
+		$self->index_name = $name;
+		return $self;
 	}
 	
 	/**
@@ -431,24 +369,26 @@ class QueryBuilder
 	 */
 	protected function initializeDatabaseAndCollection()
 	{
-		if ( !$this->connected ) {
+		if ( ! $this->connected ) {
 			throw new ElastiCuteException( 'Could not connect to database' );
 		}
 		
-		if ( !$this->index_name ) {
+		if ( ! $this->index_name ) {
 			throw new ElastiCuteException( 'Index name has not been set' );
 		}
 	}
 	
 	/**
-	 * @return array
+	 * @return ElastiCuteResponse
 	 * @throws ElastiCuteException
 	 */
-	protected function doMapping()
+	public function mapping()
 	{
 		$this->initializeDatabaseAndCollection();
 		
-		return $this->elastic->indices()->getMapping( [
+		$runner = new ElastiCuteRunner();
+		
+		return $runner->mapping( [
 			'index' => $this->index_name,
 		] );
 	}
@@ -458,7 +398,7 @@ class QueryBuilder
 	 *
 	 * @return $this
 	 */
-	protected function doAggregate( callable $aggregations )
+	public function aggregate( callable $aggregations )
 	{
 		$aggregation_query = new AggregationQuery( $this );
 		$aggregations( $aggregation_query );

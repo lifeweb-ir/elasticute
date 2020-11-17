@@ -31,7 +31,10 @@ $query = QueryBuilder::query()
 		$query->avgBasic( 'my_group', 'day_of_week_i' );
 		$query->avgAdvanced( 'group2', 'total_quantity', 20 );
 	} )
-	->get();
+	->get()
+	->map(function( $val ){
+		// do some stuff with $val
+	});
 
 
 QueryBuilder::dieAndDump( $query );

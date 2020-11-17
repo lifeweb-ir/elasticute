@@ -120,6 +120,40 @@ Name | Description
 
 ###### **Note**: More aggregations will be added over time :)
 
+
+### Response
+
+Each Request has a response, then it must be processed.
+
+```php
+<?php
+
+use ElastiCute\ElastiCute\QueryBuilder;
+
+$cards = QueryBuilder::query()
+    ->index( 'cards' )
+    ->get()
+    ->toArray();
+
+$cards = QueryBuilder::query()
+    ->index( 'cards' )
+    ->get()
+    ->map( function( $value ) {
+        // Do some stuff with $value
+    } );
+
+// use $cards for your needs
+```
+
+### Response Methods
+
+Name | Description
+--- | ---
+`toArray()` | Returns as array.
+`toJson()` | Returns as json.
+`toList()` | Returns as array list (if its a search query).
+`map()` | Map through the results(if its a search query)
+
 ### Sort / OrderBy
 
 ```php
@@ -213,7 +247,7 @@ $card = QueryBuilder::query()
 
 ### Pro tip :)
 
-You dont have to call "query" method at the first. you can directly call filters right at the beginning.
+You dont have to call "query" method first. you can directly call index right at the beginning.
 
 ```php
 <?php
@@ -223,7 +257,7 @@ use ElastiCute\ElastiCute\QueryBuilder;
 $card = QueryBuilder::index( 'cards' )
     ->find( 'wDCoxXUBA0stnoJxvwdR', true ); // find( $id, bool $get_only_source = true )
 
-$cards = QueryBuilder::whereEqual( 'name', 'foo' )
-    ->index( 'cards' )
+$cards = QueryBuilder::index( 'cards' )
+    ->whereEqual( 'name', 'foo' )
     ->get();
 ```
