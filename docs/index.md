@@ -40,7 +40,7 @@ $cards = QueryBuilder::query()
 // use $cards for your needs
 ```
 
-### Filter Methods
+#### Filter Methods
 
 Name | Description
 --- | ---
@@ -76,7 +76,7 @@ $cards = QueryBuilder::query()
 // use $cards for your needs
 ```
 
-### Group Filter Methods
+#### Group Filter Methods
 
 Name | Description
 --- | ---
@@ -110,7 +110,7 @@ $cards = QueryBuilder::query()
 // response will include $cards['aggregations']
 ```
 
-### Aggregation methods
+#### Aggregation methods
 
 Name | Description
 --- | ---
@@ -145,7 +145,7 @@ $cards = QueryBuilder::query()
 // use $cards for your needs
 ```
 
-### Response Methods
+#### Response Methods
 
 Name | Description
 --- | ---
