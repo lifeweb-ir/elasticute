@@ -5,7 +5,8 @@ namespace ElastiCute\ElastiCute;
 use Composer\Autoload\ClassLoader;
 use Dotenv\Dotenv;
 use Elasticsearch\ClientBuilder;
-use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
+use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
+use ElastiCute\ElastiCute\Aggregation\Response\ElastiCuteResponse;
 
 /**
  * Class QueryBuilder

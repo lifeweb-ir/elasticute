@@ -1,6 +1,6 @@
 <?php
 
-namespace ElastiCute\ElastiCute\Response;
+namespace ElastiCute\ElastiCute\Aggregation\Response;
 
 /**
  * Class ElastiCuteResponse

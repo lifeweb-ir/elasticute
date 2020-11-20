@@ -1,6 +1,9 @@
 <?php
 
-namespace ElastiCute\ElastiCute;
+namespace ElastiCute\ElastiCute\Aggregation;
+
+use ElastiCute\ElastiCute\Aggregation\Bucket\Avg;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 /**
  * Class AggregationQuery
@@ -33,6 +36,14 @@ class AggregationQuery
 	public function __construct( QueryBuilder $query_builder )
 	{
 		$this->query_builder = $query_builder;
+	}
+	
+	/**
+	 * @return Avg
+	 */
+	public function avg()
+	{
+		return new Avg( $this );
 	}
 	
 	/**
@@ -77,7 +88,7 @@ class AggregationQuery
 	 */
 	protected function doAvg( array $args )
 	{
-		$default_args      = [
+		$default_args = [
 			'label' => null,
 			'field' => null,
 			'script_name' => null,
@@ -85,24 +96,24 @@ class AggregationQuery
 			'missing' => null,
 			'inside' => null,
 		];
-		$args              = array_merge( $default_args, $args );
+		$args = array_merge( $default_args, $args );
 		$aggregations_info = [];
 		
-		if ( isset( $args[ 'field' ] ) )
-			$aggregations_info[ $args[ 'label' ] ][ 'avg' ][ 'field' ] = $args[ 'field' ];
-		if ( isset( $args[ 'script_name' ] ) && isset( $args[ 'script_params' ] ) )
-			$aggregations_info[ $args[ 'label' ] ][ 'avg' ][ 'script' ] = [
-				'id' => $args[ 'script_name' ],
-				'params' => $args[ 'script_params' ],
+		if ( isset( $args['field'] ) )
+			$aggregations_info[$args['label']]['avg']['field'] = $args['field'];
+		if ( isset( $args['script_name'] ) && isset( $args['script_params'] ) )
+			$aggregations_info[$args['label']]['avg']['script'] = [
+				'id' => $args['script_name'],
+				'params' => $args['script_params'],
 			];
-		if ( isset( $args[ 'script_name' ] ) && !isset( $args[ 'script_params' ] ) )
-			$aggregations_info[ $args[ 'label' ] ][ 'avg' ][ 'script' ] = [
-				'source' => $args[ 'script_name' ],
+		if ( isset( $args['script_name'] ) && ! isset( $args['script_params'] ) )
+			$aggregations_info[$args['label']]['avg']['script'] = [
+				'source' => $args['script_name'],
 			];
-		if ( isset( $args[ 'missing' ] ) )
-			$aggregations_info[ $args[ 'label' ] ][ 'avg' ][ 'missing' ] = $args[ 'missing' ];
-		if ( isset( $args[ 'inside' ] ) )
-			$aggregations_info[ $args[ 'label' ] ][ 'aggs' ] = $this->doDeepJob( $args[ 'inside' ] );
+		if ( isset( $args['missing'] ) )
+			$aggregations_info[$args['label']]['avg']['missing'] = $args['missing'];
+		if ( isset( $args['inside'] ) )
+			$aggregations_info[$args['label']]['aggs'] = $this->doDeepJob( $args['inside'] );
 		
 		$this->doInsideJob( $aggregations_info );
 		
@@ -117,7 +128,7 @@ class AggregationQuery
 		$current_info_count = count( $this::$current_depth_info );
 		
 		if ( $this->is_deep ) {
-			self::$current_depth_info[ $current_info_count - 1 ][ 'aggs' ] = $agg_info;
+			self::$current_depth_info[$current_info_count - 1]['aggs'] = $agg_info;
 		} else {
 			$this->aggregates = array_merge( $this->aggregates, $agg_info );
 		}
@@ -132,19 +143,24 @@ class AggregationQuery
 	{
 		$current_info_count = count( $this::$current_depth_info );
 		$is_already_in_deep = $this->is_deep;
-		$this->is_deep      = true;
+		$this->is_deep = true;
 		
-		$this::$current_depth_info[ $current_info_count ] = [
+		$this::$current_depth_info[$current_info_count] = [
 			'aggs' => [],
 		];
 		
 		$closure( $this );
 		
-		if ( !$is_already_in_deep ) {
+		if ( ! $is_already_in_deep ) {
 			$this->is_deep = false;
 		}
 		
-		return $this::$current_depth_info[ $current_info_count ][ 'aggs' ] ?: [];
+		return $this::$current_depth_info[$current_info_count]['aggs'] ?: [];
+	}
+	
+	protected function makeProtectedInstance()
+	{
+	
 	}
 	
 	/**

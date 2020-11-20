@@ -1,8 +1,8 @@
 <?php
 
-namespace ElastiCute\ElastiCute\Response;
+namespace ElastiCute\ElastiCute\Aggregation\Response;
 
-use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
+use ElastiCute\ElastiCute\Aggregation\Response\ElastiCuteResponse;
 
 /**
  * Class MappableResponse
