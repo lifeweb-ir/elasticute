@@ -1,7 +1,7 @@
 <?php
 
 use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 require './vendor/autoload.php';
 

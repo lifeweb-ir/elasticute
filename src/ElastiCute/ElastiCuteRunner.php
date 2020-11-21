@@ -5,8 +5,8 @@ namespace ElastiCute\ElastiCute;
 use Elasticsearch\Client;
 use Elasticsearch\ClientBuilder;
 use Elasticsearch\Common\Exceptions\BadRequest400Exception;
-use ElastiCute\ElastiCute\Aggregation\Response\ElastiCuteResponse;
-use ElastiCute\ElastiCute\Aggregation\Response\MappableResponse;
+use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
+use ElastiCute\ElastiCute\Response\MappableResponse;
 
 /**
  * Class ElastiCuteRunner
