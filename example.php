@@ -28,8 +28,10 @@ $query = QueryBuilder::query()
 	->whereNotEqual( 'currency', 'EUR2' )
 	->select( [ 'currency' ] )
 	->aggregate( function( AggregationQuery $query ){
-		$query->avgBasic( 'my_group', 'day_of_week_i' );
-		$query->avgAdvanced( 'group2', 'total_quantity', 20 );
+//		$query->avgBasic( 'my_group', 'day_of_week_i' );
+//		$query->avgAdvanced( 'group2', 'total_quantity', 20 );
+		$query->avg()->label('asdfasd')->build();
+		$query->avg()->label('sdfsdfdf')->build();
 	} )
 	->get()
 	->map(function( $val ){

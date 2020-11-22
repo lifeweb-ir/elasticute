@@ -47,7 +47,9 @@ class Avg extends AggregateBuilder
 		if ( isset( $this->inside ) )
 			$aggregations_info[$this->label]['aggs'] = $this->doDeepJob( $this->inside );
 		
-		$this->query_builder->doInsideJob( $aggregations_info );
+		$this->doInsideJob( $aggregations_info );
+		
+		parent::build();
 		
 		return $this;
 	}

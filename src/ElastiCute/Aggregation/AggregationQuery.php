@@ -170,4 +170,12 @@ class AggregationQuery
 	{
 		return $this->aggregates;
 	}
+	
+	/**
+	 * @param array $aggregates
+	 */
+	public function setAggregationList( array $aggregates )
+	{
+		$this->aggregates = $aggregates;
+	}
 }

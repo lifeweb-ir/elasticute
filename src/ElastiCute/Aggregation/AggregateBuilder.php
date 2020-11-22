@@ -2,6 +2,8 @@
 
 namespace ElastiCute\ElastiCute\Aggregation;
 
+use ElastiCute\ElastiCute\QueryBuilder;
+
 /**
  * Class AggregateBuilder
  *
@@ -10,6 +12,9 @@ namespace ElastiCute\ElastiCute\Aggregation;
 class AggregateBuilder
 {
 	protected AggregationQuery $query_builder;
+	
+	/** @var array $aggregates */
+	protected array $aggregates = [];
 	
 	protected string $type;
 	
@@ -36,18 +41,26 @@ class AggregateBuilder
 	
 	/**
 	 * @param string $field
+	 *
+	 * @return $this
 	 */
-	public function field( string $field ) : void
+	public function field( string $field ) : self
 	{
 		$this->field = $field;
+		
+		return $this;
 	}
 	
 	/**
 	 * @param string $label
+	 *
+	 * @return $this
 	 */
-	public function label( string $label ) : void
+	public function label( string $label ) : self
 	{
 		$this->label = $label;
+		
+		return $this;
 	}
 	
 	/**
@@ -55,7 +68,7 @@ class AggregateBuilder
 	 */
 	public function build()
 	{
-	
+		return new ProtectedAggregate( $this->query_builder );
 	}
 	
 	/**
@@ -68,7 +81,8 @@ class AggregateBuilder
 		if ( $this->is_deep ) {
 			self::$current_depth_info[$current_info_count - 1]['aggs'] = $agg_info;
 		} else {
-			$this->aggregates = array_merge( $this->aggregates, $agg_info );
+			QueryBuilder::dieAndDump( $agg_info );
+			$this->query_builder->setAggregationList( array_merge( $this->query_builder->getAggregationList(), $agg_info ) );
 		}
 	}
 	
