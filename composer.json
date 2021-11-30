@@ -14,7 +14,8 @@
     "require": {
         "php": ">=7.4",
         "vlucas/phpdotenv": "^5.2",
-        "elasticsearch/elasticsearch": "^7.10"
+        "elasticsearch/elasticsearch": "^7.10",
+        "ext-json": "*"
     },
     "autoload": {
         "psr-4": {

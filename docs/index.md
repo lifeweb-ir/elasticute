@@ -15,7 +15,7 @@ Just call method "query" in QueryBuilder class and you are ready.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()->index( 'cards' )->get();
 
@@ -29,7 +29,7 @@ For filtering your query you can use several methods such as `where`, `whereNot`
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -58,7 +58,7 @@ You can set your filters as a group by just adding a closure to "where" method.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -67,10 +67,10 @@ $cards = QueryBuilder::query()
         $builder->whereNotEqual( 'name', 'kourosh' );
         $builder->groupMust( function( QueryBuilder $builder ){
             $builder->whereExists( 'lastname' );
-            $builder->whereContains( 'name', 'kourosh2' );
+            $builder->whereTextContains( 'name', 'kourosh2' );
         } );
     } )
-    ->whereNotContains( 'lastname', 'weber' )
+    ->whereTextNotContains( 'lastname', 'weber' )
     ->get();
 
 // use $cards for your needs
@@ -92,7 +92,7 @@ Aggregations are so important and could be used anywhere. So you can use it very
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
 
 $cards = QueryBuilder::query()
@@ -104,7 +104,7 @@ $cards = QueryBuilder::query()
             'name' => 'weber',
         ] );
     } )
-    ->whereNotContains( 'lastname', 'weber' )
+    ->whereTextNotContains( 'lastname', 'weber' )
     ->get();
 
 // response will include $cards['aggregations']
@@ -128,7 +128,7 @@ Each Request has a response, then it must be processed.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -159,7 +159,7 @@ Name | Description
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -178,7 +178,7 @@ $cards = QueryBuilder::query()
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -192,7 +192,7 @@ $cards = QueryBuilder::query()
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -209,7 +209,7 @@ You can select your index at the query by calling "index" method.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
@@ -224,7 +224,7 @@ By calling method "find", you can retrieve the document based on id.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $card = QueryBuilder::query()
     ->index( 'cards' )
@@ -238,7 +238,7 @@ By calling method "mapping", you can retrieve the index mapping.
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $card = QueryBuilder::query()
     ->index( 'cards' )
@@ -252,7 +252,7 @@ You dont have to call "query" method first. you can directly call index right at
 ```php
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\QueryBuilder;
+use ElastiCute\ElastiCute\QueryBuilder;
 
 $card = QueryBuilder::index( 'cards' )
     ->find( 'wDCoxXUBA0stnoJxvwdR', true ); // find( $id, bool $get_only_source = true )

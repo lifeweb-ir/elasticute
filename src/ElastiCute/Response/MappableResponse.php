@@ -2,8 +2,6 @@
 
 namespace ElastiCute\ElastiCute\Response;
 
-use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
-
 /**
  * Class MappableResponse
  *
@@ -11,21 +9,21 @@ use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
  */
 class MappableResponse extends ElastiCuteResponse
 {
-	protected array $mappable_response;
-	
+	protected array $mappableResponse;
+
 	/**
 	 * MappableResponse constructor.
 	 *
-	 * @param array $elastic_response
-	 * @param array $mappable_response
+	 * @param array $elasticResponse
+	 * @param array $mappableResponse
 	 */
-	public function __construct( array $elastic_response, array $mappable_response )
+	public function __construct( array $elasticResponse, array $mappableResponse )
 	{
-		$this->mappable_response = $mappable_response;
-		
-		parent::__construct( $elastic_response );
+		$this->mappableResponse = $mappableResponse;
+
+		parent::__construct( $elasticResponse );
 	}
-	
+
 	/**
 	 * @param callable $action
 	 *
@@ -33,14 +31,14 @@ class MappableResponse extends ElastiCuteResponse
 	 */
 	public function map( callable $action )
 	{
-		return array_map( $action, $this->mappable_response );
+		return array_map( $action, $this->mappableResponse );
 	}
-	
+
 	/**
 	 * @return array
 	 */
-	public function toList()
-	{
-		return $this->mappable_response;
+	public function toList(): array
+    {
+		return $this->mappableResponse;
 	}
 }

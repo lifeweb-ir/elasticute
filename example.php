@@ -5,22 +5,42 @@ use ElastiCute\ElastiCute\QueryBuilder;
 
 require './vendor/autoload.php';
 
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
+try {
+    $query = QueryBuilder::query()
+        ->index('news_comments')
+        ->groupMust(function (QueryBuilder $builder) {
+            $builder->whereTextContains('text', 'تست');
+        })
+        ->select(['_id'])
+        ->get();
+
+    QueryBuilder::dieAndDump($query);
+} catch (\ElastiCute\ElastiCute\ElastiCuteException $e) {
+}
+
+
+QueryBuilder::dieAndDump( $query );
+
 $query = QueryBuilder::query()
-	->index( 'kibana_sample_data_ecommerce' )
+	->index( 'instagram_profiles' )
 	->sort( [
 		'products.created_on' => [
 			'order' => 'desc',
 		],
 	] )
 	->groupShould( function ( QueryBuilder $builder ) {
-		$builder->whereContains( 'name', 'payam1' );
+		$builder->whereTextContains( 'name', 'payam1' );
 		$builder->whereEqual( 'name', 'payam2' );
 	} )
 	->groupMust( function ( QueryBuilder $builder ) {
-		$builder->whereContains( 'name', 'payam7' );
+		$builder->whereTextContains( 'name', 'payam7' );
 		$builder->whereEqual( 'name', 'payam8' );
 		$builder->groupMust( function ( QueryBuilder $builder ) {
-			$builder->whereNotContains( 'name', 'payam10' );
+			$builder->whereTextNotContains( 'name', 'payam10' );
 			$builder->whereEqual( 'name', 'mamad11' );
 		} );
 		$builder->whereNotEqual( 'name', 'payam13' );

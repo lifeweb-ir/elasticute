@@ -9,46 +9,46 @@ namespace ElastiCute\ElastiCute\Response;
  */
 class ElastiCuteResponse
 {
-	protected array $elastic_response;
-	
+	protected array $elasticResponse;
+
 	/**
 	 * ElastiCuteResponse constructor.
 	 *
-	 * @param array $elastic_response
+	 * @param array $elasticResponse
 	 */
-	public function __construct( array $elastic_response )
+	public function __construct( array $elasticResponse )
 	{
-		$this->elastic_response = $elastic_response;
+		$this->elasticResponse = $elasticResponse;
 	}
-	
+
 	protected function processResponse()
 	{
-	
+
 	}
-	
+
 	/**
 	 * Return response as array
 	 *
 	 * @return array
 	 */
-	public function toArray()
-	{
-		return $this->elastic_response;
+	public function toArray(): array
+    {
+		return $this->elasticResponse;
 	}
-	
+
 	/**
 	 * @return false|string
 	 */
 	public function toJson()
 	{
-		return json_encode( $this->elastic_response, JSON_UNESCAPED_UNICODE );
+		return json_encode( $this->elasticResponse, JSON_UNESCAPED_UNICODE );
 	}
-	
+
 	/**
 	 * @return array
 	 */
 	public function getElasticResponse() : array
 	{
-		return $this->elastic_response;
+		return $this->elasticResponse;
 	}
 }
