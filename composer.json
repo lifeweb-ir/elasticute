@@ -13,8 +13,8 @@
     ],
     "require": {
         "php": ">=7.4",
-        "vlucas/phpdotenv": ">=^4.0",
-        "elasticsearch/elasticsearch": ">=^6.0",
+        "vlucas/phpdotenv": ">=4.2.0",
+        "elasticsearch/elasticsearch": ">=6.8.2",
         "ext-json": "*"
     },
     "autoload": {
