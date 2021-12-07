@@ -6,6 +6,7 @@ use Elasticsearch\Client;
 use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
 use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
 use ElastiCute\ElastiCute\Response\MappableResponse;
+use Exception;
 
 /**
  * Class QueryBuilder
@@ -49,11 +50,6 @@ class QueryBuilder
     protected array $select = [];
 
     /**
-     * @var bool $isGroupWhere
-     */
-    protected bool $isGroupWhere = false;
-
-    /**
      * @var int
      */
     protected int $size = 10;
@@ -69,33 +65,44 @@ class QueryBuilder
     protected int $paginationNumber = 1;
 
     /**
-     * @var array $currentDepthInfo
-     */
-    protected static array $currentDepthInfo = [
-        0 => [
-            'type' => 'must',
-            'conditions' => [],
-        ],
-    ];
-
-    /**
      * @var Client $elastic
      */
     protected Client $elastic;
 
     /**
+     * @var ElasticuteQuerySingular
+     */
+    protected ElasticuteQuerySingular $initialGroup;
+
+    /**
+     * @var ElasticuteQuerySingular
+     */
+    protected ElasticuteQuerySingular $currentGroup;
+
+    /**
      * this is allowed operators for queries
      */
-    protected const ALLOWED_OPERATORS = ['term', 'match', 'match_phrase', 'match_all', 'range'];
+    protected const ALLOWED_OPERATORS = [
+        'term',
+        'match',
+        'match_phrase',
+        'match_all',
+        'range',
+        'wildcard'
+    ];
 
     /**
      * Model constructor.
      */
     public function __construct()
     {
+        $this->initialGroup = $this->currentGroup = new ElasticuteQuerySingular();
+        $this->initialGroup->isGroup = true;
+        $this->initialGroup->setGroupType('must');
+
         try {
             $this->connected = true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->connected = false;
         }
     }
@@ -157,6 +164,46 @@ class QueryBuilder
     public function getQuery(): array
     {
         return $this->query;
+    }
+
+    /**
+     * @return \array[][]
+     */
+    public function getAndGenerateQuery(): array
+    {
+        return $this->query = $this->generateGroup();
+    }
+
+    /**
+     * @param ElasticuteQuerySingular|null $group
+     * @return \array[][]
+     */
+    protected function generateGroup(?ElasticuteQuerySingular $group = null): array
+    {
+        $group = $group ?? $this->initialGroup;
+        return [
+            'bool' => [
+                $group->getGroupType() => $this->generateChildren($group)
+            ]
+        ];
+    }
+
+    /**
+     * @param ElasticuteQuerySingular $group
+     * @return array
+     */
+    protected function generateChildren(ElasticuteQuerySingular $group): array
+    {
+        $children = [];
+        foreach ($group->getChildren() as $child){
+            if($child->isGroup){
+                $children[] = $this->generateGroup($child);
+            }else{
+                $children[] = $child->getQuery();
+            }
+        }
+
+        return $children;
     }
 
     /**
@@ -288,13 +335,11 @@ class QueryBuilder
      */
     protected function addWhereRawCondition(array $condition = []): QueryBuilder
     {
-        $currentInfoCount = count($this::$currentDepthInfo);
+        $child = new ElasticuteQuerySingular();
 
-        if ($this->isGroupWhere) {
-            $this::$currentDepthInfo[$currentInfoCount - 1]['conditions'][] = $condition;
-        } else {
-            $this->query[] = $condition;
-        }
+        $child->setQuery($condition);
+
+        $this->currentGroup->addChild($child);
 
         return $this;
     }
@@ -331,30 +376,20 @@ class QueryBuilder
      */
     protected function booleanGroup(callable $filters, string $operator = 'must'): self
     {
-        $currentInfoCount = count($this::$currentDepthInfo);
-        $isAlreadyInGroup = $this->isGroupWhere;
+        $child = new ElasticuteQuerySingular();
 
-        $this->isGroupWhere = true;
-        $this::$currentDepthInfo[$currentInfoCount] = [
-            'type' => $operator,
-            'conditions' => [],
-        ];
+        $child->isGroup = true;
+        $child->setGroupType($operator);
+
+        $this->currentGroup->addChild($child);
+
+        $parentGroup = $this->currentGroup;
+
+        $this->currentGroup = $child;
+
         $filters($this);
-        if ($isAlreadyInGroup) {
-            $this::$currentDepthInfo[$currentInfoCount - 1]['conditions'][] = [
-                'bool' => [
-                    $this::$currentDepthInfo[$currentInfoCount]['type'] =>
-                        $this::$currentDepthInfo[$currentInfoCount]['conditions'],
-                ],
-            ];
-        } else {
-            $this->isGroupWhere = false;
 
-            $this->query[]['bool'] = [
-                $this::$currentDepthInfo[$currentInfoCount]['type'] =>
-                    $this::$currentDepthInfo[$currentInfoCount]['conditions'],
-            ];
-        }
+        $this->currentGroup = $parentGroup;
 
         return $this;
     }
@@ -412,8 +447,8 @@ class QueryBuilder
     {
         $this->body = [];
 
-        if ($this->getQuery()) {
-            $this->body['query'] = ['bool' => ['must' => $this->getQuery()]];
+        if ($this->getAndGenerateQuery()) {
+            $this->body['query'] = $this->getQuery();
         } else {
             $this->body['query'] = [
                 'match_all' => (object)[],

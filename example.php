@@ -21,11 +21,12 @@ try {
                 ]
             ]);
         })
-        ->select(['_id', '@timestamp'])
+        ->select(['_id', '@timestamp', 'text'])
         ->get();
 
     QueryBuilder::dieAndDump($query);
 } catch (\ElastiCute\ElastiCute\ElastiCuteException $e) {
+    QueryBuilder::dieAndDump($e);
 }
 
 
