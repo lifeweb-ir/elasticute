@@ -86,7 +86,7 @@ class QueryBuilder
     /**
      * this is allowed operators for queries
      */
-    protected const ALLOWED_OPERATORS = ['term', 'match', 'match_phrase', 'match_all'];
+    protected const ALLOWED_OPERATORS = ['term', 'match', 'match_phrase', 'match_all', 'range'];
 
     /**
      * Model constructor.
@@ -249,17 +249,17 @@ class QueryBuilder
 
     /**
      * @param        $key
-     * @param string $value
+     * @param mixed $value
      * @param string $operator
-     *
+     * @param array $extra
      * @return $this
      */
-    protected function doWhere($key, string $value = '', string $operator = 'match'): self
+    protected function doWhere($key, $value = '', string $operator = 'match', array $extra = []): self
     {
         $operator = in_array($operator, self::ALLOWED_OPERATORS) ? $operator : 'match';
 
         if ($key) {
-            $this->addWhereCondition($key, $value, $operator);
+            $this->addWhereCondition($key, $value, $operator, $extra);
         }
 
         return $this;
@@ -273,20 +273,30 @@ class QueryBuilder
      */
     protected function addWhereCondition($key, $value, string $operator = 'match', array $extra = [])
     {
-        $currentInfoCount = count($this::$currentDepthInfo);
-
-        // set group where conditions
         $conditionQuery = [
-            $operator => [
+            $operator => array_merge([
                 $key => $value,
-            ],
+            ], $extra),
         ];
 
+        $this->addWhereRawCondition($conditionQuery);
+    }
+
+    /**
+     * @param array $condition
+     * @return QueryBuilder
+     */
+    protected function addWhereRawCondition(array $condition = []): QueryBuilder
+    {
+        $currentInfoCount = count($this::$currentDepthInfo);
+
         if ($this->isGroupWhere) {
-            $this::$currentDepthInfo[$currentInfoCount - 1]['conditions'][] = $conditionQuery;
+            $this::$currentDepthInfo[$currentInfoCount - 1]['conditions'][] = $condition;
         } else {
-            $this->query[] = $conditionQuery;
+            $this->query[] = $condition;
         }
+
+        return $this;
     }
 
     /**
@@ -423,7 +433,7 @@ class QueryBuilder
         }
 
         if ($this->getPaginationNumber()) {
-            $this->body['from'] = $this->getPaginationNumber() * $this->getSize();
+            $this->body['from'] = ($this->getPaginationNumber()-1) * $this->getSize();
         }
 
         if ($this->getAggregations()) {

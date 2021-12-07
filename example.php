@@ -13,9 +13,15 @@ try {
     $query = QueryBuilder::query()
         ->index('news_comments')
         ->groupMust(function (QueryBuilder $builder) {
-            $builder->whereTextContains('text', 'تست');
+            $builder->whereTextContains('text', 'test');
+            $builder->whereGreaterThanOrEqual('@timestamp', '2021-12-05');
+            $builder->whereRaw([
+                'match' => [
+                    'text' => 'test'
+                ]
+            ]);
         })
-        ->select(['_id'])
+        ->select(['_id', '@timestamp'])
         ->get();
 
     QueryBuilder::dieAndDump($query);

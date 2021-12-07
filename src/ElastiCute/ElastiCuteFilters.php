@@ -78,6 +78,32 @@ trait ElastiCuteFilters
     /**
      * @param string $name
      * @param        $value
+     * @param string $operator
+     * @param array $extra
+     * @return $this
+     */
+    public function where(string $name, $value, string $operator = 'match', array $extra = []): self
+    {
+        return $this->doWhere($name, $value, $operator, $extra);
+    }
+
+    /**
+     * @param string $name
+     * @param        $value
+     * @param string $operator
+     * @param array $extra
+     * @return $this
+     */
+    public function whereNot(string $name, $value, string $operator = 'match', array $extra = []): self
+    {
+        return $this->groupMustNot(function (QueryBuilder $builder) use ($name, $value, $operator, $extra) {
+            $builder->doWhere($name, $value, $operator, $extra);
+        });
+    }
+
+    /**
+     * @param string $name
+     * @param        $value
      *
      * @return $this
      */
@@ -119,5 +145,69 @@ trait ElastiCuteFilters
         return $this->groupMustNot(function (QueryBuilder $builder) use ($name) {
             $builder->doWhere('field', $name, 'exists');
         });
+    }
+
+    /**
+     * @param string $name
+     * @param mixed $from
+     * @param mixed $to
+     * @param mixed $format
+     * @param mixed $timezone
+     * @return $this
+     */
+    public function whereRange(string $name, $from = null, $to = null, $format = null, $timezone = null): self
+    {
+        $query = [];
+
+        if($from !== null){
+            $query['gte'] = $from;
+        }
+
+        if($to !== null){
+            $query['lte'] = $to;
+        }
+
+        if($format !== null){
+            $query['format'] = $format;
+        }
+
+        if($timezone !== null){
+            $query['time_zone'] = $timezone;
+        }
+
+        return $this->doWhere($name, $query, 'range');
+    }
+
+    /**
+     * @param string $name
+     * @param        $gte
+     * @param null $format
+     * @param null $timezone
+     * @return $this
+     */
+    public function whereGreaterThanOrEqual(string $name, $gte, $format = null, $timezone = null): self
+    {
+        return $this->whereRange($name, $gte, null, $format, $timezone);
+    }
+
+    /**
+     * @param string $name
+     * @param        $lte
+     * @param null $format
+     * @param null $timezone
+     * @return $this
+     */
+    public function whereLessThanOrEqual(string $name, $lte, $format = null, $timezone = null): self
+    {
+        return $this->whereRange($name, null, $lte, $format, $timezone);
+    }
+
+    /**
+     * @param array $raw
+     * @return $this
+     */
+    public function whereRaw(array $raw): self
+    {
+        return $this->addWhereRawCondition($raw);
     }
 }

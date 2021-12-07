@@ -44,8 +44,10 @@ $cards = QueryBuilder::query()
 
 Name | Description
 --- | ---
-`whereTextContains( string $name, $value )` | Matches values that are contains a specified value.
-`whereTextNotContains( string $name, $value )` | Matches values that are not contains a specified value.
+`where(string $name, $value, string $operator, array $extra)` | Matches values that is not a specified value.
+`whereNot(string $name, $value, string $operator, array $extra)` | Matches values that is a specified value.
+`whereContains( string $name, $value )` | Matches values that are contains a specified value.
+`whereNotContains( string $name, $value )` | Matches values that are not contains a specified value.
 `whereEqual( string $name, $value )` | Matches values that are equal to a specified value.
 `whereNotEqual( string $name, $value )` | Matches all values that are not equal to a specified value.
 `whereExists( string $name )` | Matches documents that have the specified field.
