@@ -1,6 +1,6 @@
 <?php
 
-use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
+use ElastiCute\ElastiCute\Aggregation\AggregationBuilder;
 use ElastiCute\ElastiCute\QueryBuilder;
 
 require './vendor/autoload.php';
@@ -21,8 +21,14 @@ try {
                 ]
             ]);
         })
+        ->aggregations( function( AggregationBuilder $query ){
+            $query->make('like_count')->avg()->field('like_count');
+            $query->make('dislike_count')->avg()->field('dislike_count');
+            $query->make('dislike_count_term')->terms()->field('dislike_count')->additionalOptions(['size' => 3]);
+        } )
         ->select(['_id', '@timestamp', 'text'])
-        ->get();
+        ->get()
+        ->getAggregations();
 
     QueryBuilder::dieAndDump($query);
 } catch (\ElastiCute\ElastiCute\ElastiCuteException $e) {
@@ -32,38 +38,39 @@ try {
 
 QueryBuilder::dieAndDump( $query );
 
-$query = QueryBuilder::query()
-	->index( 'instagram_profiles' )
-	->sort( [
-		'products.created_on' => [
-			'order' => 'desc',
-		],
-	] )
-	->groupShould( function ( QueryBuilder $builder ) {
-		$builder->whereTextContains( 'name', 'payam1' );
-		$builder->whereEqual( 'name', 'payam2' );
-	} )
-	->groupMust( function ( QueryBuilder $builder ) {
-		$builder->whereTextContains( 'name', 'payam7' );
-		$builder->whereEqual( 'name', 'payam8' );
-		$builder->groupMust( function ( QueryBuilder $builder ) {
-			$builder->whereTextNotContains( 'name', 'payam10' );
-			$builder->whereEqual( 'name', 'mamad11' );
-		} );
-		$builder->whereNotEqual( 'name', 'payam13' );
-	} )
-	->whereNotEqual( 'currency', 'EUR2' )
-	->select( [ 'currency' ] )
-	->aggregate( function( AggregationQuery $query ){
-//		$query->avgBasic( 'my_group', 'day_of_week_i' );
-//		$query->avgAdvanced( 'group2', 'total_quantity', 20 );
-		$query->avg()->label('asdfasd')->build();
-		$query->avg()->label('sdfsdfdf')->build();
-	} )
-	->get()
-	->map(function( $val ){
-		// do some stuff with $val
-	});
+try {
+    $query = QueryBuilder::query()
+        ->index('instagram_profiles')
+        ->sort([
+            'products.created_on' => [
+                'order' => 'desc',
+            ],
+        ])
+        ->groupShould(function (QueryBuilder $builder) {
+            $builder->whereTextContains('name', 'payam1');
+            $builder->whereEqual('name', 'payam2');
+        })
+        ->groupMust(function (QueryBuilder $builder) {
+            $builder->whereTextContains('name', 'payam7');
+            $builder->whereEqual('name', 'payam8');
+            $builder->groupMust(function (QueryBuilder $builder) {
+                $builder->whereTextNotContains('name', 'payam10');
+                $builder->whereEqual('name', 'mamad11');
+            });
+            $builder->whereNotEqual('name', 'payam13');
+        })
+        ->whereNotEqual('currency', 'EUR2')
+        ->select(['currency'])
+        ->aggregations(function (AggregationBuilder $query) {
+            $query->make('like_count')->avg()->field('like_count');
+            $query->make('dislike_count')->avg()->field('dislike_count');
+        })
+        ->get()
+        ->map(function ($val) {
+            // do some stuff with $val
+        });
+} catch (\ElastiCute\ElastiCute\ElastiCuteException $e) {
+}
 
 
 QueryBuilder::dieAndDump( $query );

@@ -8,7 +8,6 @@ use Elasticsearch\Client;
 use Elasticsearch\ClientBuilder;
 use Elasticsearch\Common\Exceptions\BadRequest400Exception;
 use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
-use ElastiCute\ElastiCute\Response\MappableResponse;
 
 /**
  * Class ElastiCuteRunner
@@ -17,7 +16,10 @@ use ElastiCute\ElastiCute\Response\MappableResponse;
  */
 class ElastiCuteRunner
 {
-    protected Client $official_builder;
+    /**
+     * @var Client
+     */
+    protected Client $officialBuilder;
 
     /**
      * ElastiCuteRunner constructor.
@@ -28,7 +30,7 @@ class ElastiCuteRunner
         $envReader = Dotenv::createImmutable(dirname($ref->getFileName()) . '/../../');
         $envReader->safeLoad();
 
-        $this->official_builder = ClientBuilder::create()
+        $this->officialBuilder = ClientBuilder::create()
             ->setHosts(
                 [
                     [
@@ -45,15 +47,15 @@ class ElastiCuteRunner
     /**
      * @param array $params
      *
-     * @return MappableResponse
+     * @return ElastiCuteResponse
      * @throws ElastiCuteException
      */
-    public function search(array $params): MappableResponse
+    public function search(array $params): ElastiCuteResponse
     {
         try {
-            $search = $this->official_builder->search($params);
+            $search = $this->officialBuilder->search($params);
 
-            return new MappableResponse($search, $search['hits']['hits'] ?? []);
+            return new ElastiCuteResponse($search);
         } catch (BadRequest400Exception $exception) {
             $this->manageException($exception);
         }
@@ -61,17 +63,17 @@ class ElastiCuteRunner
 
     /**
      * @param array $params
-     * @param bool $source_only
+     * @param bool $sourceOnly
      *
      * @return ElastiCuteResponse
      * @throws ElastiCuteException
      */
-    public function find(array $params, bool $source_only): ElastiCuteResponse
+    public function find(array $params, bool $sourceOnly): ElastiCuteResponse
     {
-        $method = $source_only ? 'getSource' : 'get';
+        $method = $sourceOnly ? 'getSource' : 'get';
 
         try {
-            $search = $this->official_builder->$method($params);
+            $search = $this->officialBuilder->$method($params);
 
             return new ElastiCuteResponse($search);
         } catch (BadRequest400Exception $exception) {
@@ -88,7 +90,7 @@ class ElastiCuteRunner
     public function mapping(array $params): ElastiCuteResponse
     {
         try {
-            $search = $this->official_builder->indices()->getMapping($params);
+            $search = $this->officialBuilder->indices()->getMapping($params);
 
             return new ElastiCuteResponse($search);
         } catch (BadRequest400Exception $exception) {
@@ -103,9 +105,9 @@ class ElastiCuteRunner
      */
     protected function manageException(\Exception $exception)
     {
-        $error_message = json_decode($exception->getMessage(), true);
+        $errorMessage = json_decode($exception->getMessage(), true);
 
-        throw new ElastiCuteException($error_message['error']['root_cause'][0]['reason'] ?? $exception->getMessage(), 400);
+        throw new ElastiCuteException($errorMessage['error']['root_cause'][0]['reason'] ?? $exception->getMessage(), 400);
     }
 
     /**

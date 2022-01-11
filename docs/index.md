@@ -94,17 +94,14 @@ Aggregations are so important and could be used anywhere. So you can use it very
 ```php
 <?php
 
+use ElastiCute\ElastiCute\Aggregation\AggregationBuilder;
 use ElastiCute\ElastiCute\QueryBuilder;
-use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
 
 $cards = QueryBuilder::query()
     ->index( 'cards' )
-    ->aggregate( function( AggregationQuery $builder ){
-        $builder->avgBasic( 'comments_count', 'count' );
-        $builder->avgScript( 'my_aggregate', 'script_name', [
-            'foo' => 'bar',
-            'name' => 'weber',
-        ] );
+    ->aggregate( function( AggregationBuilder $query ){
+        $query->make('like_count')->avg()->field('like_count');
+        $query->make('dislike_count')->avg()->field('dislike_count');
     } )
     ->whereTextNotContains( 'lastname', 'weber' )
     ->get();
@@ -116,9 +113,11 @@ $cards = QueryBuilder::query()
 
 Name | Description
 --- | ---
-`avgBasic( string $label, string $field )` | Aggregate based on 'avg' type as simple method
-`avgAdvanced( string $label, string $field, float $missing = 0 )` | Aggregate based on 'avg' type but has more options
-`avgScript( string $label, string $script_name, array $script_params = null )` | Aggregate based on 'avg' type but uses an script
+`avg()` | Aggregate based on 'avg' type
+`terms()` | Aggregate based on 'terms' type
+`histogram()` | Aggregate based on 'histogram' type
+`max()` | Aggregate based on 'max' type
+`min()` | Aggregate based on 'min' type
 
 ###### **Note**: More aggregations will be added over time :)
 

@@ -9,7 +9,15 @@ namespace ElastiCute\ElastiCute\Response;
  */
 class ElastiCuteResponse
 {
-	protected array $elasticResponse;
+    /**
+     * @var array
+     */
+    protected array $elasticResponse;
+
+    /**
+     * @var array
+     */
+    protected array $mappableResponse;
 
 	/**
 	 * ElastiCuteResponse constructor.
@@ -19,9 +27,13 @@ class ElastiCuteResponse
 	public function __construct( array $elasticResponse )
 	{
 		$this->elasticResponse = $elasticResponse;
+		$this->mappableResponse = $elasticResponse['hits']['hits'] ?? [];
 	}
 
-	protected function processResponse()
+    /**
+     *
+     */
+    protected function processResponse()
 	{
 
 	}
@@ -51,4 +63,30 @@ class ElastiCuteResponse
 	{
 		return $this->elasticResponse;
 	}
+
+    /**
+     * @return array|mixed
+     */
+    public function getAggregations()
+    {
+        return $this->getElasticResponse()['aggregations'] ?? [];
+    }
+
+    /**
+     * @param callable $action
+     *
+     * @return mixed
+     */
+    public function map( callable $action )
+    {
+        return array_map( $action, $this->mappableResponse );
+    }
+
+    /**
+     * @return array
+     */
+    public function toList(): array
+    {
+        return $this->mappableResponse;
+    }
 }

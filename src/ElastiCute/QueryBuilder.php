@@ -3,9 +3,8 @@
 namespace ElastiCute\ElastiCute;
 
 use Elasticsearch\Client;
-use ElastiCute\ElastiCute\Aggregation\AggregationQuery;
+use ElastiCute\ElastiCute\Aggregation\AggregationBuilder;
 use ElastiCute\ElastiCute\Response\ElastiCuteResponse;
-use ElastiCute\ElastiCute\Response\MappableResponse;
 use Exception;
 
 /**
@@ -417,10 +416,10 @@ class QueryBuilder
     /**
      * @param int $count
      *
-     * @return MappableResponse
+     * @return ElastiCuteResponse
      * @throws ElastiCuteException
      */
-    public function get(int $count = 10): MappableResponse
+    public function get(int $count = 10): ElastiCuteResponse
     {
         return $this->doGet($count);
     }
@@ -429,10 +428,10 @@ class QueryBuilder
      * @param int $documentPerPage
      * @param int $pageNumber
      *
-     * @return MappableResponse
+     * @return ElastiCuteResponse
      * @throws ElastiCuteException
      */
-    public function paginate(int $documentPerPage = 10, int $pageNumber = 1): MappableResponse
+    public function paginate(int $documentPerPage = 10, int $pageNumber = 1): ElastiCuteResponse
     {
         $this->setPaginationNumber($pageNumber);
         $this->setSize($documentPerPage);
@@ -480,10 +479,10 @@ class QueryBuilder
 
     /**
      * @param int $count
-     * @return MappableResponse
+     * @return ElastiCuteResponse
      * @throws ElastiCuteException
      */
-    protected function doGet(int $count = 10): MappableResponse
+    protected function doGet(int $count = 10): ElastiCuteResponse
     {
         $this->initializeDatabaseAndCollection();
         $this->setSize($count);
@@ -543,11 +542,12 @@ class QueryBuilder
      *
      * @return $this
      */
-    public function aggregate(callable $aggregations): self
+    public function aggregations(callable $aggregations): self
     {
-        $aggregationQuery = new AggregationQuery($this);
-        $aggregations($aggregationQuery);
-        $this->aggregations = $aggregationQuery->getAggregationList();
+        $aggregationBuilder = new AggregationBuilder($this);
+        $aggregations($aggregationBuilder);
+        $this->aggregations = $aggregationBuilder->generateAggregations();
+
         return $this;
     }
 
